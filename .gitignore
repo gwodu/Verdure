@@ -1,0 +1,6 @@
+# Android Studio and tools
+android-tools/
+
+# OS files
+.DS_Store
+Thumbs.db
