@@ -21,6 +21,14 @@
         android:enabled="false"
         android:layout_marginTop="16dp"/>
 
+    <Button
+        android:id="@+id/testDirectAiButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Test Direct AI (Hello)"
+        android:enabled="false"
+        android:layout_marginTop="8dp"/>
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
