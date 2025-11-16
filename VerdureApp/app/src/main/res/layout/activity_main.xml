@@ -5,11 +5,12 @@
     android:orientation="vertical"
     android:padding="16dp">
 
+    <!-- Status and Permission Section -->
     <TextView
         android:id="@+id/statusText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Checking notification access..."
+        android:text="Checking permissions..."
         android:textSize="16sp"
         android:padding="8dp"/>
 
@@ -17,33 +18,72 @@
         android:id="@+id/requestPermissionButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Enable Notification Access"
+        android:text="Enable Permissions"
         android:layout_marginTop="8dp"/>
 
+    <!-- System Context -->
     <TextView
-        android:id="@+id/notificationCountText"
+        android:id="@+id/systemContextText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="No notifications captured yet"
+        android:text="Loading system context..."
         android:textSize="14sp"
-        android:textStyle="bold"
+        android:textStyle="italic"
         android:padding="8dp"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="8dp"/>
 
+    <!-- Day Planner ScrollView -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:layout_marginTop="8dp">
 
-        <TextView
-            android:id="@+id/notificationListText"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Notifications will appear here..."
-            android:textSize="14sp"
-            android:fontFamily="monospace"
-            android:padding="8dp"/>
+            android:orientation="vertical">
+
+            <!-- Calendar Events Section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📅 UPCOMING EVENTS"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:padding="8dp"
+                android:background="#E8F5E9"/>
+
+            <TextView
+                android:id="@+id/calendarEventsText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Loading calendar events..."
+                android:textSize="14sp"
+                android:fontFamily="monospace"
+                android:padding="8dp"/>
+
+            <!-- Notifications Section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📱 NOTIFICATIONS"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:padding="8dp"
+                android:layout_marginTop="16dp"
+                android:background="#FFF3E0"/>
+
+            <TextView
+                android:id="@+id/notificationListText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Waiting for notifications..."
+                android:textSize="14sp"
+                android:fontFamily="monospace"
+                android:padding="8dp"/>
+
+        </LinearLayout>
     </ScrollView>
 
 </LinearLayout>
