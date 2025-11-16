@@ -9,37 +9,40 @@
         android:id="@+id/statusText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Initializing..."
+        android:text="Checking notification access..."
         android:textSize="16sp"
         android:padding="8dp"/>
 
     <Button
-        android:id="@+id/testButton"
+        android:id="@+id/requestPermissionButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Test Notification Filtering"
-        android:enabled="false"
-        android:layout_marginTop="16dp"/>
-
-    <Button
-        android:id="@+id/testDirectAiButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Test Direct AI (Hello)"
-        android:enabled="false"
+        android:text="Enable Notification Access"
         android:layout_marginTop="8dp"/>
+
+    <TextView
+        android:id="@+id/notificationCountText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No notifications captured yet"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:padding="8dp"
+        android:layout_marginTop="16dp"/>
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginTop="16dp">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp">
 
         <TextView
-            android:id="@+id/responseText"
+            android:id="@+id/notificationListText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Response will appear here..."
+            android:text="Notifications will appear here..."
             android:textSize="14sp"
+            android:fontFamily="monospace"
             android:padding="8dp"/>
     </ScrollView>
 

@@ -1,91 +1,115 @@
 package com.verdure.ui
 
+import android.content.ComponentName
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.verdure.R
-import com.verdure.core.GeminiNanoEngine
-import com.verdure.core.VerdureAI
-import com.verdure.tools.NotificationTool
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import com.verdure.services.VerdureNotificationListener
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
-    
-    private lateinit var geminiEngine: GeminiNanoEngine
-    private lateinit var verdureAI: VerdureAI
-    
+
     private lateinit var statusText: TextView
-    private lateinit var responseText: TextView
-    private lateinit var testButton: Button
-    private lateinit var testDirectAiButton: Button
+    private lateinit var requestPermissionButton: Button
+    private lateinit var notificationCountText: TextView
+    private lateinit var notificationListText: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         statusText = findViewById(R.id.statusText)
-        responseText = findViewById(R.id.responseText)
-        testButton = findViewById(R.id.testButton)
-        testDirectAiButton = findViewById(R.id.testDirectAiButton)
+        requestPermissionButton = findViewById(R.id.requestPermissionButton)
+        notificationCountText = findViewById(R.id.notificationCountText)
+        notificationListText = findViewById(R.id.notificationListText)
 
-        initializeAI()
-
-        testButton.setOnClickListener {
-            testNotificationFiltering()
+        requestPermissionButton.setOnClickListener {
+            requestNotificationListenerPermission()
         }
 
-        testDirectAiButton.setOnClickListener {
-            testDirectAI()
-        }
-    }
-    
-    private fun initializeAI() {
-        statusText.text = "Initializing Gemini Nano..."
-        
-        CoroutineScope(Dispatchers.Main).launch {
-            geminiEngine = GeminiNanoEngine(applicationContext)
-            
-            val success = withContext(Dispatchers.IO) {
-                geminiEngine.initialize()
-            }
-            
-            if (success) {
-                verdureAI = VerdureAI(geminiEngine)
-                verdureAI.registerTool(NotificationTool(applicationContext, geminiEngine))
-
-                statusText.text = "✅ Ready! Tap button to test."
-                testButton.isEnabled = true
-                testDirectAiButton.isEnabled = true
-            } else {
-                statusText.text = "❌ Failed to initialize. Check AICore settings."
-            }
-        }
+        checkPermissionAndSetupObserver()
     }
 
-    private fun testNotificationFiltering() {
-        responseText.text = "Processing..."
+    override fun onResume() {
+        super.onResume()
+        // Re-check permission when returning to the app
+        checkPermissionAndSetupObserver()
+    }
 
-        CoroutineScope(Dispatchers.Main).launch {
-            val response = withContext(Dispatchers.IO) {
-                verdureAI.processRequest("What notifications are important?")
-            }
-            responseText.text = response
+    /**
+     * Check if notification listener permission is granted.
+     */
+    private fun isNotificationListenerEnabled(): Boolean {
+        val enabledListeners = Settings.Secure.getString(
+            contentResolver,
+            "enabled_notification_listeners"
+        )
+        val componentName = ComponentName(this, VerdureNotificationListener::class.java)
+        return enabledListeners?.contains(componentName.flattenToString()) == true
+    }
+
+    /**
+     * Open settings to allow user to grant notification listener permission.
+     */
+    private fun requestNotificationListenerPermission() {
+        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+        startActivity(intent)
+    }
+
+    /**
+     * Check permission and set up notification observer if granted.
+     */
+    private fun checkPermissionAndSetupObserver() {
+        if (isNotificationListenerEnabled()) {
+            statusText.text = "✅ Notification access enabled"
+            requestPermissionButton.isEnabled = false
+            requestPermissionButton.text = "Notification Access Granted"
+
+            // Observe notifications from the service
+            observeNotifications()
+        } else {
+            statusText.text = "⚠️ Notification access required"
+            requestPermissionButton.isEnabled = true
+            requestPermissionButton.text = "Enable Notification Access"
         }
     }
 
-    private fun testDirectAI() {
-        responseText.text = "Testing direct AI connection...\n\n"
+    /**
+     * Observe the notifications StateFlow and update UI.
+     */
+    private fun observeNotifications() {
+        lifecycleScope.launch {
+            VerdureNotificationListener.notifications.collect { notifications ->
+                if (notifications.isEmpty()) {
+                    notificationCountText.text = "No notifications captured yet"
+                    notificationListText.text = "Waiting for notifications...\n\nOnce you receive notifications on your phone, they will appear here."
+                } else {
+                    notificationCountText.text = "Captured ${notifications.size} notification(s)"
 
-        CoroutineScope(Dispatchers.Main).launch {
-            val response = withContext(Dispatchers.IO) {
-                // Directly call Gemini Nano without routing through tools
-                geminiEngine.generateContent("Hello! Please introduce yourself in one sentence and confirm you are running on-device.")
+                    // Format notifications for display
+                    val displayText = notifications.joinToString("\n\n---\n\n") { notif ->
+                        buildString {
+                            append("📱 ${notif.appName}\n")
+                            append("⏰ ${notif.getFormattedTime()}\n")
+                            if (!notif.title.isNullOrBlank()) {
+                                append("📌 ${notif.title}\n")
+                            }
+                            if (!notif.text.isNullOrBlank()) {
+                                append("💬 ${notif.text}\n")
+                            }
+                            append("🔖 Package: ${notif.packageName}\n")
+                            append("⚡ Priority: ${notif.priority}")
+                        }
+                    }
+
+                    notificationListText.text = displayText
+                }
             }
-            responseText.text = "Direct AI Test Result:\n\n$response"
         }
     }
 }
