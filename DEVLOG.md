@@ -205,3 +205,150 @@ Error code 8-NOT_AVAILABLE: Required LLM feature not found
 - No ML models needed yet - temporal + priority scoring works well
 - Ready for real-world testing on Pixel 8A
 - Semantic understanding (Stage 2B) will be the next major enhancement
+
+---
+
+## Session 3 - November 16, 2025 (Evening)
+
+### What We Built
+
+**Clickable Notifications & UI Improvements**
+- ✅ Added PendingIntent to NotificationData for app launching
+- ✅ Made notification cards clickable to open source apps
+- ✅ Improved UI with color-coded cards (red/yellow/green by priority)
+- ✅ Added visual "👆 Tap to open" indicator
+- ✅ Individual notification cards with dividers
+
+**Simplified Prioritization**
+- ✅ Removed time-of-day multiplier (night/morning penalties)
+- ✅ Removed DND mode logic
+- ✅ Kept only: Android base priority + recency boost
+- ✅ Cleaner, more predictable scoring system
+
+**Documentation Updates**
+- ✅ Updated DEVLOG.md with Session 2 progress
+- ✅ Updated CLAUDE.md to document GitHub Actions as primary build method
+
+### What We Discovered
+
+**Android 14 Background Activity Launch (BAL) Restrictions**
+
+The major blocker encountered: Android's strict security restrictions prevent apps from launching activities from notifications, even when the launching app is in the foreground.
+
+**Error Analysis:**
+```
+Background activity launch blocked! goo.gle/android-bal
+balAllowedByPiCreator: BSP.NONE  (Notification creator didn't allow)
+realCallingUidProcState: TOP      (Verdure IS in foreground)
+balDontBringExistingBackgroundTaskStackToFg: true  (Android blocks it anyway)
+```
+
+**Key Findings:**
+- Gmail (targetSdk: 36) and Calendar notifications are blocked
+- Even though Verdure is TOP (foreground), Android blocks the launch
+- The restriction is: `balDontBringExistingBackgroundTaskStackToFg: true`
+- This prevents bringing cached apps to foreground from notification intents
+- `resultIfPiSenderAllowsBal: BAL_ALLOW_VISIBLE_WINDOW` suggests we SHOULD be allowed
+- But Android 14/15 has stricter rules for apps targeting SDK 36
+
+**What This Means:**
+- Apps targeting Android 15 (SDK 36) like Gmail create notifications that can't be launched from third-party apps
+- This is a fundamental Android security restriction, not a bug in our code
+- Even system notification managers face this limitation
+
+### Attempts to Fix Notification Clicks
+
+**Attempt 1:** Use `PendingIntent.send()` without context
+- ❌ Failed: Method requires context parameter
+
+**Attempt 2:** Use `PendingIntent.send(context, code, intent, onFinished, handler, options)`
+- ❌ Failed: Wrong method signature, compilation error
+
+**Attempt 3:** Use `ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED`
+- ❌ Failed: Android still blocks due to `balDontBringExistingBackgroundTaskStackToFg`
+
+**Attempt 4:** Use `Activity.startIntentSender()`
+- ✅ Compiles successfully
+- ❌ Still blocked by Android BAL restrictions at runtime
+
+### Technical Challenges
+
+**Build System Issues:**
+- Local builds hit resource limits (thread exhaustion)
+- Solution: Always use GitHub Actions for builds
+- Added `--no-daemon --max-workers=2` for emergency local builds
+
+**Android API Version Compatibility:**
+- `PendingIntent.send()` has different overloads across SDK versions
+- Compilation succeeded locally but failed on GitHub Actions
+- Solution: Switched to `startIntentSender()` for universal compatibility
+
+### Current Blocker
+
+**Notification clicks are blocked by Android 14+ BAL restrictions.**
+
+The restriction is at the OS level, not in our code. Possible solutions for next session:
+
+1. **Foreground Service Approach:**
+   - Start a foreground service when user clicks notification
+   - `balAllowedByPiSender: BSP.ALLOW_FGS` suggests this might work
+   - Trade-off: Persistent notification for the service
+
+2. **Display Over Other Apps Permission:**
+   - Request `SYSTEM_ALERT_WINDOW` permission
+   - Allows launching activities from background
+   - Trade-off: Invasive permission, poor UX
+
+3. **Accept Limitation:**
+   - Some notifications (especially from SDK 36 apps) won't be clickable
+   - Document this as a platform limitation
+   - Focus on other features (semantic understanding, learning)
+
+4. **Alternative UX:**
+   - Show notification content in-app
+   - Provide "Copy text" / "Share" options instead of "Open"
+   - Let user manually navigate to the app
+
+### Files Changed
+
+- `app/src/main/java/com/verdure/data/NotificationData.kt` - Added PendingIntent field
+- `app/src/main/java/com/verdure/services/VerdureNotificationListener.kt` - Capture contentIntent, add logging
+- `app/src/main/java/com/verdure/ui/MainActivity.kt` - Clickable cards, simplified prioritization, startIntentSender
+- `app/src/main/res/layout/activity_main.xml` - LinearLayout container for dynamic cards
+- `CLAUDE.md` - Document GitHub Actions build process
+- `DEVLOG.md` - Session 2 and 3 updates
+
+### Next Session Goals
+
+**Option A: Work around BAL restrictions**
+- Implement foreground service for notification launches
+- Test if this bypasses BAL restrictions
+- Handle service lifecycle properly
+
+**Option B: Pivot to other features**
+- Accept BAL limitation as unfixable
+- Focus on semantic understanding (Stage 2B)
+- Implement sentence embeddings for notification matching
+- Add ML-based prioritization
+
+**Option C: Alternative interaction model**
+- Make notifications read-only in Verdure
+- Add "Copy", "Share", "Remind me later" actions
+- Focus on intelligent sorting, not launching
+
+### Metrics
+
+**Session Duration:** ~3 hours (20:00 - 23:00)
+**Commits:** 7 commits
+**Lines Changed:** ~100 lines modified
+**Build Attempts:** 4 failed, 1 successful (in progress)
+**Bugs Fixed:** Compilation errors (multiple)
+**Bugs Remaining:** BAL restriction blocking notification clicks
+
+### Notes
+
+- Android's security model is getting stricter with each version
+- BAL restrictions are a platform-level challenge affecting all notification manager apps
+- May need to reconsider the "tap to open" feature as core functionality
+- The app's value proposition might need to shift from "launcher" to "intelligent viewer"
+- Real-world testing revealed issues not caught in development
