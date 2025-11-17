@@ -110,6 +110,14 @@ class VerdureNotificationListener : NotificationListenerService() {
                 return null
             }
 
+            // Log contentIntent availability for debugging
+            val contentIntent = notification.contentIntent
+            if (contentIntent == null) {
+                Log.d(TAG, "No contentIntent for notification from $appName")
+            } else {
+                Log.d(TAG, "ContentIntent available for notification from $appName")
+            }
+
             return NotificationData(
                 id = nextId++,
                 packageName = sbn.packageName,
@@ -119,7 +127,7 @@ class VerdureNotificationListener : NotificationListenerService() {
                 timestamp = sbn.postTime,
                 category = notification.category,
                 priority = notification.priority,
-                contentIntent = notification.contentIntent  // Capture the intent to open the app
+                contentIntent = contentIntent  // Capture the intent to open the app
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error extracting notification data", e)

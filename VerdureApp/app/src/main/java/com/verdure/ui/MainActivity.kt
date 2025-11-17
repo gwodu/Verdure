@@ -285,12 +285,20 @@ class MainActivity : AppCompatActivity() {
             card.isFocusable = true
             card.setOnClickListener {
                 try {
-                    notif.contentIntent.send()
+                    // Send the PendingIntent to launch the app
+                    notif.contentIntent.send(
+                        this@MainActivity,
+                        0,
+                        null,
+                        null,
+                        null
+                    )
                 } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "Failed to send PendingIntent", e)
                     android.widget.Toast.makeText(
-                        this,
-                        "Failed to open notification",
-                        android.widget.Toast.LENGTH_SHORT
+                        this@MainActivity,
+                        "Failed to open notification: ${e.message}",
+                        android.widget.Toast.LENGTH_LONG
                     ).show()
                 }
             }
