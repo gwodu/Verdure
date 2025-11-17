@@ -297,14 +297,22 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     // Send the PendingIntent to launch the app
-                    notif.contentIntent.send(
-                        this@MainActivity,
-                        0,
-                        null,
-                        null,
-                        null,
-                        options
-                    )
+                    if (options != null) {
+                        // Android 14+: Use options to allow background activity start
+                        notif.contentIntent.send(
+                            this@MainActivity,
+                            0,
+                            null,
+                            options
+                        )
+                    } else {
+                        // Android < 14: Use basic send
+                        notif.contentIntent.send(
+                            this@MainActivity,
+                            0,
+                            null
+                        )
+                    }
                 } catch (e: Exception) {
                     android.util.Log.e("MainActivity", "Failed to send PendingIntent", e)
                     android.widget.Toast.makeText(
