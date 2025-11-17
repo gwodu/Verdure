@@ -13,9 +13,12 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.verdure.R
+import com.verdure.core.MLCLLMEngine
+import com.verdure.core.VerdureAI
 import com.verdure.services.CalendarReader
 import com.verdure.services.SystemStateMonitor
 import com.verdure.services.VerdureNotificationListener
+import com.verdure.tools.NotificationTool
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,6 +34,10 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var calendarReader: CalendarReader
     private lateinit var systemStateMonitor: SystemStateMonitor
+
+    // AI components
+    private lateinit var llmEngine: MLCLLMEngine
+    private lateinit var verdureAI: VerdureAI
 
     companion object {
         private const val CALENDAR_PERMISSION_REQUEST = 100
@@ -50,12 +57,39 @@ class MainActivity : AppCompatActivity() {
         calendarReader = CalendarReader(applicationContext)
         systemStateMonitor = SystemStateMonitor(applicationContext)
 
+        // Initialize AI components
+        initializeAI()
+
         requestPermissionButton.setOnClickListener {
             requestAllPermissions()
         }
 
         checkPermissionsAndSetup()
         updateSystemContext()
+    }
+
+    /**
+     * Initialize the LLM engine and VerdureAI orchestrator.
+     */
+    private fun initializeAI() {
+        lifecycleScope.launch {
+            // Initialize MLC LLM engine
+            llmEngine = MLCLLMEngine(applicationContext)
+            val initialized = llmEngine.initialize()
+
+            if (initialized) {
+                // Create VerdureAI orchestrator
+                verdureAI = VerdureAI(llmEngine)
+
+                // Register tools
+                verdureAI.registerTool(NotificationTool(llmEngine))
+
+                println("✅ Verdure AI initialized successfully")
+                println("   Tools registered: ${verdureAI.getAvailableTools().size}")
+            } else {
+                println("❌ Failed to initialize Verdure AI")
+            }
+        }
     }
 
     override fun onResume() {

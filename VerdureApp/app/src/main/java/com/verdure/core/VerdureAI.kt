@@ -4,17 +4,17 @@ import com.verdure.tools.Tool
 
 /**
  * Central AI orchestrator for Verdure
- * 
+ *
  * This is the "brain" that:
  * 1. Manages all available tools (NotificationTool, DayPlannerTool, etc.)
  * 2. Routes user requests to appropriate tools
  * 3. Synthesizes responses from multiple tools
- * 4. Falls back to direct Gemini Nano conversation when no tool matches
- * 
+ * 4. Falls back to direct LLM conversation when no tool matches
+ *
  * For prototype: Simple keyword-based routing
- * Future: Use Gemini to intelligently select tools based on user intent
+ * Future: Use LLM to intelligently select tools based on user intent
  */
-class VerdureAI(private val geminiEngine: GeminiNanoEngine) {
+class VerdureAI(private val llmEngine: LLMEngine) {
     
     // Registry of all available tools
     private val tools = mutableMapOf<String, Tool>()
@@ -72,10 +72,10 @@ class VerdureAI(private val geminiEngine: GeminiNanoEngine) {
                 }
             }
             
-            // Default: Direct conversation with Gemini Nano
+            // Default: Direct conversation with LLM
             else -> {
-                println("💬 Direct Gemini Nano conversation")
-                geminiEngine.generateContent(userMessage)
+                println("💬 Direct LLM conversation")
+                llmEngine.generateContent(userMessage)
             }
         }
     }

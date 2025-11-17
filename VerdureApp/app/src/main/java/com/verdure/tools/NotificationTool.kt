@@ -1,30 +1,40 @@
 package com.verdure.tools
 
-import android.content.Context
-import android.service.notification.StatusBarNotification
-import com.verdure.core.GeminiNanoEngine
+import com.verdure.core.LLMEngine
+import com.verdure.data.NotificationData
+import com.verdure.services.VerdureNotificationListener
 
+/**
+ * Tool for analyzing and prioritizing notifications
+ *
+ * Reads notifications from VerdureNotificationListener (Service)
+ * Uses LLM to categorize by importance/urgency
+ * Returns human-readable summary
+ */
 class NotificationTool(
-    private val context: Context,
-    private val geminiEngine: GeminiNanoEngine
+    private val llmEngine: LLMEngine
 ) : Tool {
-    
+
     override val name: String = "notification_filter"
     override val description: String = "Analyzes and prioritizes notifications based on importance and urgency"
-    
+
     override suspend fun execute(params: Map<String, Any>): String {
         val userQuery = params["query"] as? String ?: "What's important?"
-        
+
+        // Read notifications from the Service's StateFlow
         val notifications = getRecentNotifications()
-        
+
         if (notifications.isEmpty()) {
             return "You have no notifications right now."
         }
-        
+
+        // Format notifications for LLM analysis
         val notificationList = notifications.mapIndexed { index, notif ->
-            "${index + 1}. ${notif.app}: ${notif.title} - ${notif.text}"
+            val title = notif.title ?: "(no title)"
+            val text = notif.text ?: "(no text)"
+            "${index + 1}. ${notif.appName}: $title - $text"
         }.joinToString("\n")
-        
+
         val prompt = """
 You are a notification prioritization assistant. Analyze these notifications and categorize them:
 
@@ -41,18 +51,15 @@ Categorize into:
 
 Provide a brief, clear summary.
         """.trimIndent()
-        
-        return geminiEngine.generateContent(prompt)
+
+        return llmEngine.generateContent(prompt)
     }
-    
+
+    /**
+     * Get recent notifications from VerdureNotificationListener
+     * This connects the Tool (processor) to the Service (collector)
+     */
     private fun getRecentNotifications(limit: Int = 10): List<NotificationData> {
-        return emptyList()
+        return VerdureNotificationListener.notifications.value.take(limit)
     }
-    
-    data class NotificationData(
-        val app: String,
-        val title: String,
-        val text: String,
-        val timestamp: Long
-    )
 }

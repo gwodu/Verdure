@@ -68,35 +68,184 @@ No test framework is currently set up. When adding tests, use the standard Andro
 
 ## Architecture
 
-### Core Components
+### End Goal: LLM as the User Interface
 
-The codebase follows a layered architecture with three main layers:
+**Vision:** Verdure uses a conversational LLM as the primary UX. Users interact through natural language, and the AI orchestrates various tools to accomplish tasks. The LLM acts as an intelligent router, deciding which tools to invoke based on user intent.
 
-1. **Core Layer** (`com.verdure.core/`)
-   - `GeminiNanoEngine`: Low-level wrapper around Google's Gemini Nano model via AICore. Handles initialization, configuration, and content generation. All AI inference happens on-device.
-   - `VerdureAI`: Central orchestrator that manages tool registration, routes user requests to appropriate tools, and falls back to direct LLM conversation when no tool matches.
+**Example interaction:**
+- User: "What's urgent today?"
+- LLM understands intent → invokes NotificationTool + CalendarTool
+- Tools execute → return data
+- LLM synthesizes → responds: "You have 2 urgent notifications and a meeting in 30 min"
 
-2. **Tools Layer** (`com.verdure.tools/`)
-   - `Tool`: Base interface for all AI-powered capabilities
-   - `NotificationTool`: Example tool for analyzing and prioritizing notifications (prototype stage)
-   - Tools are registered with VerdureAI at runtime and invoked based on keyword matching (prototype) or AI-based intent detection (planned)
+### Core Principles
 
-3. **UI Layer** (`com.verdure.ui/`)
-   - `MainActivity`: Entry point that initializes the AI engine, registers tools, and provides test UI
+1. **LLM as UX**: Natural language interface, not traditional buttons/menus
+2. **Extensible tools**: Easily add new capabilities by implementing the `Tool` interface
+3. **On-device AI**: All processing happens locally (Llama 3.2 via MLC LLM)
+4. **Tool orchestration**: LLM decides which tools to use and synthesizes responses
+5. **Privacy-first**: No cloud APIs, all data stays on device
 
-### Tool System Design
+### Architecture Layers
 
-The tool system is designed for extensibility:
-- Each tool implements the `Tool` interface with `name`, `description`, and `execute()` method
-- Tools receive parameters as `Map<String, Any>` for flexibility
-- Tools can use the Gemini engine for AI-powered processing
-- Currently uses keyword-based routing in `VerdureAI.kt:45-81`, planned enhancement to use Gemini for intelligent tool selection
+```
+User speaks naturally
+    ↓
+LLM understands intent (Llama 3.2 on-device)
+    ↓
+VerdureAI routes to appropriate tool(s)
+    ↓
+Tools execute (read notifications, set reminders, etc.)
+    ↓
+LLM synthesizes results into natural response
+```
+
+#### 1. **Core Layer** (`com.verdure.core/`)
+
+**`LLMEngine`** - Interface for any LLM backend
+- Abstraction allows swapping LLM implementations
+- Current: `MLCLLMEngine` (Llama 3.2 1B via MLC LLM)
+- Future: Could support other models
+
+**`VerdureAI`** - Central orchestrator
+- Routes user requests to appropriate tools
+- Manages tool registry (extensible - add any number of tools)
+- Falls back to direct LLM conversation when no tool needed
+- Currently: keyword-based routing → Future: AI-based intent detection
+
+#### 2. **Tools Layer** (`com.verdure.tools/`)
+
+**Concept:** Tools are capabilities the LLM can invoke to accomplish tasks.
+
+**`Tool` interface:**
+```kotlin
+interface Tool {
+    val name: String
+    val description: String
+    suspend fun execute(params: Map<String, Any>): String
+}
+```
+
+**Extensibility:** Simply implement `Tool` interface and register with VerdureAI.
+
+**Current tools:**
+- `NotificationTool`: Analyzes and prioritizes notifications
+
+**Planned tools:**
+- `ReminderTool`: Sets alarms/reminders via Android APIs
+- `CalendarTool`: Reads calendar, creates events
+- `MessageTool`: Drafts replies, sends texts
+- `ContextTool`: Provides location/time context
+- And more... (infinitely extensible)
+
+**Key distinction:**
+- Tools **process data on-demand** (when LLM invokes them)
+- Tools can use Android APIs directly (set alarms, send texts, etc.)
+- Tools return results to LLM for synthesis
+
+#### 3. **Services Layer** (`com.verdure.services/`)
+
+**Concept:** Services passively collect data 24/7 in the background.
+
+**Current:**
+- `VerdureNotificationListener`: Listens for notifications, stores in StateFlow
+
+**Planned:**
+- `CalendarSyncService`: Monitors calendar changes
+- `LocationService`: Tracks location context
+
+**Key distinction:**
+- Services are **Android background components** (run 24/7)
+- Services **collect data**, Tools **process data**
+- Services = passive listeners, Tools = active processors
+
+#### 4. **UI Layer** (`com.verdure.ui/`)
+
+**Current:** Basic testing UI
+
+**Future:** Conversational interface where LLM is the UX
+
+### Services vs Tools
+
+**Why separate?**
+
+| Services (Background) | Tools (On-Demand) |
+|-----------------------|-------------------|
+| Collect data 24/7 | Process when LLM asks |
+| No AI inference | Use LLM for analysis |
+| Android framework components | Verdure abstractions |
+| Example: Listen for notifications | Example: Analyze notification importance |
+
+**Analogy:** Services are sensors (always collecting), Tools are actuators (do things when needed).
+
+### Extensibility
+
+**Adding a new tool is simple:**
+1. Create class implementing `Tool` interface
+2. Define `name`, `description`, and `execute()` logic
+3. Register with VerdureAI in `MainActivity`
+4. LLM can now invoke your tool
+
+**Example - Adding a WeatherTool:**
+```kotlin
+class WeatherTool : Tool {
+    override val name = "weather"
+    override val description = "Gets current weather"
+
+    override suspend fun execute(params: Map<String, Any>): String {
+        // Call weather API or read local data
+        return "Sunny, 72°F"
+    }
+}
+
+// In MainActivity:
+verdureAI.registerTool(WeatherTool())
+```
+
+Now users can ask: "What's the weather?" and the LLM will route to WeatherTool.
 
 ### Request Flow
 
-User input → `VerdureAI.processRequest()` → Tool selection (keyword-based) → Tool execution → Response
+**Simple conversation:**
+```
+User: "Tell me a joke"
+→ VerdureAI: No tool needed
+→ LLMEngine.generateContent()
+→ Response
+```
 
-For unmatched queries, falls back to direct Gemini Nano conversation.
+**Tool orchestration:**
+```
+User: "What's urgent today?"
+→ VerdureAI: Routes to NotificationTool + CalendarTool
+→ Tools execute, return data
+→ LLM synthesizes results
+→ "You have 2 urgent notifications and a meeting at 3pm"
+```
+
+**Future - Multi-tool orchestration:**
+```
+User: "Remind me to call Mom when I get home"
+→ LLM analyzes intent
+→ Invokes LocationService (detect home)
+→ Invokes ReminderTool (set reminder with location trigger)
+→ "Done! I'll remind you when you arrive home"
+```
+
+### Technology Stack
+
+**LLM:** Llama 3.2 1B (quantized) via MLC LLM
+- ~550 MB model size
+- Runs entirely on-device
+- No internet required
+
+**Android APIs:** Tools interact directly with system
+- `AlarmManager` for reminders
+- `CalendarContract` for calendar
+- `SmsManager` for messaging
+- `NotificationManager` for notifications
+
+**No cloud dependencies** - everything on-device, privacy-first.
 
 ## Key Dependencies
 
@@ -104,12 +253,14 @@ For unmatched queries, falls back to direct Gemini Nano conversation.
 - **Android Gradle Plugin**: 8.2.0
 - **AndroidX**: Core KTX, AppCompat, Material Design
 - **Coroutines**: 1.7.3 (for async operations)
-- **AI Edge SDK**: 0.0.1-exp01 (Deprecated - non-functional on Pixel 8A, will be replaced)
+- **MLC LLM**: Latest (for on-device Llama 3.2 inference)
 
-**Planned additions:**
-- TensorFlow Lite (for on-device ML models)
-- Sentence Transformers (for semantic embeddings)
-- Optional: MLC LLM (for Llama 3.2 if needed)
+**Deprecated:**
+- **AI Edge SDK**: 0.0.1-exp01 (non-functional on Pixel 8A, replaced by MLC LLM)
+
+**Future additions:**
+- TensorFlow Lite (for sentence embeddings)
+- Sentence Transformers (for semantic similarity)
 
 ## Development Environment
 
