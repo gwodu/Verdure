@@ -26,39 +26,41 @@ Instead of relying on unavailable LLM APIs, Verdure focuses on practical, achiev
 - On-device processing using lightweight models or rule-based systems
 - Future: Optional small LLM (Llama 3.2 1B) for complex tasks only
 
-## Build Commands
+## Build System
 
-All commands should be run from the `VerdureApp/` directory.
+**Primary build method: GitHub Actions CI/CD**
 
-### Build the app
-```bash
-cd VerdureApp
-./gradlew build
-```
+All builds are automated through GitHub Actions. When you push code to the repository:
+1. GitHub Actions automatically builds the APK
+2. APK is available as an artifact in the workflow run
+3. Download from: https://github.com/gwodu/Verdure/actions
 
-### Build debug APK
-```bash
-cd VerdureApp
-./gradlew assembleDebug
-```
+**IMPORTANT:** Do NOT build locally using Gradle unless explicitly requested. Always commit changes and push to trigger the automated build.
 
-### Build release APK
-```bash
-cd VerdureApp
-./gradlew assembleRelease
-```
+### Local Build Commands (optional)
 
-### Clean build
+If local builds are required, all commands should be run from the `VerdureApp/` directory.
+
+**Build debug APK:**
 ```bash
 cd VerdureApp
 ./gradlew clean
+./gradlew assembleDebug --no-daemon --max-workers=2
 ```
 
-### Install on connected device
+**Build release APK:**
+```bash
+cd VerdureApp
+./gradlew assembleRelease --no-daemon --max-workers=2
+```
+
+**Install on connected device:**
 ```bash
 cd VerdureApp
 ./gradlew installDebug
 ```
+
+**Note:** Use `--no-daemon --max-workers=2` to avoid resource exhaustion on limited systems.
 
 ## Testing
 
