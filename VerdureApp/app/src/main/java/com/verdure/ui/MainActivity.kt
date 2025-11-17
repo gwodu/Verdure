@@ -27,6 +27,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var systemContextText: TextView
     private lateinit var calendarEventsText: TextView
     private lateinit var notificationListText: TextView
+    private lateinit var notificationListContainer: android.widget.LinearLayout
 
     private lateinit var calendarReader: CalendarReader
     private lateinit var systemStateMonitor: SystemStateMonitor
@@ -44,6 +45,7 @@ class MainActivity : AppCompatActivity() {
         systemContextText = findViewById(R.id.systemContextText)
         calendarEventsText = findViewById(R.id.calendarEventsText)
         notificationListText = findViewById(R.id.notificationListText)
+        notificationListContainer = findViewById(R.id.notificationListContainer)
 
         calendarReader = CalendarReader(applicationContext)
         systemStateMonitor = SystemStateMonitor(applicationContext)
@@ -197,56 +199,112 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Observe the notifications StateFlow and update UI with temporal prioritization.
+     * Observe the notifications StateFlow and update UI with prioritization.
      */
     private fun observeNotifications() {
         lifecycleScope.launch {
             VerdureNotificationListener.notifications.collect { notifications ->
-                if (notifications.isEmpty()) {
-                    notificationListText.text = "Waiting for notifications...\n\nOnce you receive notifications on your phone, they will appear here."
-                } else {
-                    // Apply temporal prioritization
-                    val prioritized = withContext(Dispatchers.Default) {
-                        prioritizeNotifications(notifications)
-                    }
+                runOnUiThread {
+                    // Clear existing notification views (but keep the placeholder text view)
+                    notificationListContainer.removeAllViews()
 
-                    // Format notifications for display
-                    val displayText = prioritized.joinToString("\n\n---\n\n") { (notif, score) ->
-                        buildString {
-                            // Show priority indicator
-                            val indicator = when {
-                                score >= 1.5 -> "🔴 HIGH"
-                                score >= 1.0 -> "🟡 MEDIUM"
-                                else -> "🟢 LOW"
+                    if (notifications.isEmpty()) {
+                        notificationListText.text = "Waiting for notifications...\n\nOnce you receive notifications on your phone, they will appear here."
+                        notificationListContainer.addView(notificationListText)
+                    } else {
+                        // Apply prioritization
+                        val prioritized = prioritizeNotifications(notifications)
+
+                        // Create clickable card for each notification
+                        prioritized.forEach { (notif, score) ->
+                            val notifCard = createNotificationCard(notif, score)
+                            notificationListContainer.addView(notifCard)
+
+                            // Add divider
+                            val divider = android.view.View(this@MainActivity)
+                            divider.layoutParams = android.widget.LinearLayout.LayoutParams(
+                                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                                2
+                            ).apply {
+                                setMargins(0, 16, 0, 16)
                             }
-                            append("$indicator Priority (score: %.2f)\n".format(score))
-                            append("📱 ${notif.appName}\n")
-                            append("⏰ ${notif.getFormattedTime()}\n")
-                            if (!notif.title.isNullOrBlank()) {
-                                append("📌 ${notif.title}\n")
-                            }
-                            if (!notif.text.isNullOrBlank()) {
-                                append("💬 ${notif.text}\n")
-                            }
-                            append("⚡ Base Priority: ${notif.priority}")
+                            divider.setBackgroundColor(0xFFCCCCCC.toInt())
+                            notificationListContainer.addView(divider)
                         }
                     }
-
-                    notificationListText.text = displayText
                 }
             }
         }
     }
 
     /**
-     * Prioritize notifications based on temporal context and urgency.
+     * Create a clickable notification card.
+     */
+    private fun createNotificationCard(
+        notif: com.verdure.data.NotificationData,
+        score: Double
+    ): TextView {
+        val card = TextView(this)
+        card.layoutParams = android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        card.setPadding(16, 16, 16, 16)
+        card.textSize = 14f
+        card.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.NORMAL)
+
+        // Priority indicator and color
+        val (indicator, bgColor) = when {
+            score >= 1.5 -> "🔴 HIGH" to 0xFFFFEBEE.toInt()
+            score >= 1.0 -> "🟡 MEDIUM" to 0xFFFFF3E0.toInt()
+            else -> "🟢 LOW" to 0xFFE8F5E9.toInt()
+        }
+        card.setBackgroundColor(bgColor)
+
+        // Build notification text
+        val displayText = buildString {
+            append("$indicator Priority (score: %.2f)\n".format(score))
+            append("📱 ${notif.appName}\n")
+            append("⏰ ${notif.getFormattedTime()}\n")
+            if (!notif.title.isNullOrBlank()) {
+                append("📌 ${notif.title}\n")
+            }
+            if (!notif.text.isNullOrBlank()) {
+                append("💬 ${notif.text}\n")
+            }
+            append("⚡ Base Priority: ${notif.priority}\n")
+            if (notif.contentIntent != null) {
+                append("\n👆 Tap to open")
+            }
+        }
+        card.text = displayText
+
+        // Make clickable if contentIntent exists
+        if (notif.contentIntent != null) {
+            card.isClickable = true
+            card.isFocusable = true
+            card.setOnClickListener {
+                try {
+                    notif.contentIntent.send()
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(
+                        this,
+                        "Failed to open notification",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+
+        return card
+    }
+
+    /**
+     * Prioritize notifications based on Android priority and recency.
      * Returns list of (notification, priority score) pairs, sorted by priority.
      */
     private fun prioritizeNotifications(notifications: List<com.verdure.data.NotificationData>):
             List<Pair<com.verdure.data.NotificationData, Double>> {
-
-        // Get time-based priority multiplier
-        val timeMultiplier = systemStateMonitor.getTimePriorityMultiplier()
 
         // Calculate priority score for each notification
         val scored = notifications.map { notif ->
@@ -264,14 +322,6 @@ class MainActivity : AppCompatActivity() {
                 else -> 0.0
             }
             score += recencyBoost
-
-            // Apply time of day multiplier
-            score *= timeMultiplier
-
-            // DND mode reduces all priorities except high-priority
-            if (systemStateMonitor.isDndEnabled() && notif.priority < 1) {
-                score *= 0.5
-            }
 
             Pair(notif, score)
         }

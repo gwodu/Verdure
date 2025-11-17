@@ -118,7 +118,8 @@ class VerdureNotificationListener : NotificationListenerService() {
                 text = text,
                 timestamp = sbn.postTime,
                 category = notification.category,
-                priority = notification.priority
+                priority = notification.priority,
+                contentIntent = notification.contentIntent  // Capture the intent to open the app
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error extracting notification data", e)

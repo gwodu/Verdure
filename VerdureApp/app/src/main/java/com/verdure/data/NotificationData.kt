@@ -1,5 +1,7 @@
 package com.verdure.data
 
+import android.app.PendingIntent
+
 /**
  * Data class representing a notification captured from the device.
  */
@@ -11,7 +13,8 @@ data class NotificationData(
     val text: String?,
     val timestamp: Long,
     val category: String?,
-    val priority: Int
+    val priority: Int,
+    val contentIntent: PendingIntent?  // Intent to open the notification's app
 ) {
     /**
      * Get a human-readable timestamp string.

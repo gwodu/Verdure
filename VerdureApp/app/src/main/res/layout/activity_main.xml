@@ -74,14 +74,21 @@
                 android:layout_marginTop="16dp"
                 android:background="#FFF3E0"/>
 
-            <TextView
-                android:id="@+id/notificationListText"
+            <LinearLayout
+                android:id="@+id/notificationListContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Waiting for notifications..."
-                android:textSize="14sp"
-                android:fontFamily="monospace"
-                android:padding="8dp"/>
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <TextView
+                    android:id="@+id/notificationListText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Waiting for notifications..."
+                    android:textSize="14sp"
+                    android:fontFamily="monospace"/>
+            </LinearLayout>
 
         </LinearLayout>
     </ScrollView>
