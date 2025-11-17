@@ -32,6 +32,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var notificationListText: TextView
     private lateinit var notificationListContainer: android.widget.LinearLayout
 
+    // LLM test components
+    private lateinit var testLlmButton: Button
+    private lateinit var llmResponseText: TextView
+
     private lateinit var calendarReader: CalendarReader
     private lateinit var systemStateMonitor: SystemStateMonitor
 
@@ -54,6 +58,10 @@ class MainActivity : AppCompatActivity() {
         notificationListText = findViewById(R.id.notificationListText)
         notificationListContainer = findViewById(R.id.notificationListContainer)
 
+        // LLM test components
+        testLlmButton = findViewById(R.id.testLlmButton)
+        llmResponseText = findViewById(R.id.llmResponseText)
+
         calendarReader = CalendarReader(applicationContext)
         systemStateMonitor = SystemStateMonitor(applicationContext)
 
@@ -62,6 +70,11 @@ class MainActivity : AppCompatActivity() {
 
         requestPermissionButton.setOnClickListener {
             requestAllPermissions()
+        }
+
+        // LLM test button handler
+        testLlmButton.setOnClickListener {
+            testLlm()
         }
 
         checkPermissionsAndSetup()
@@ -86,8 +99,53 @@ class MainActivity : AppCompatActivity() {
 
                 println("✅ Verdure AI initialized successfully")
                 println("   Tools registered: ${verdureAI.getAvailableTools().size}")
+
+                // Enable test button once AI is ready
+                runOnUiThread {
+                    testLlmButton.isEnabled = true
+                    testLlmButton.text = "Test LLM: Say Hello ✓"
+                }
             } else {
                 println("❌ Failed to initialize Verdure AI")
+                runOnUiThread {
+                    testLlmButton.isEnabled = false
+                    testLlmButton.text = "LLM Failed to Initialize"
+                }
+            }
+        }
+    }
+
+    /**
+     * Test the LLM by sending a simple "Hello" message.
+     * Demonstrates:
+     * - VerdureAI request routing
+     * - LLMEngine stub response
+     * - Architecture working end-to-end
+     */
+    private fun testLlm() {
+        lifecycleScope.launch {
+            try {
+                llmResponseText.text = "Thinking..."
+
+                // Send request through VerdureAI
+                val response = verdureAI.processRequest("Hello! Tell me about yourself.")
+
+                // Display response
+                runOnUiThread {
+                    llmResponseText.text = buildString {
+                        append("✅ LLM Response:\n\n")
+                        append(response)
+                        append("\n\n")
+                        append("📊 Architecture verified:")
+                        append("\n• VerdureAI routing: working")
+                        append("\n• MLCLLMEngine stub: working")
+                        append("\n• Ready for real LLM integration")
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    llmResponseText.text = "❌ Error: ${e.message}"
+                }
             }
         }
     }

@@ -21,6 +21,35 @@
         android:text="Enable Permissions"
         android:layout_marginTop="8dp"/>
 
+    <!-- LLM Test Section -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🤖 LLM TEST"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:padding="8dp"
+        android:layout_marginTop="16dp"
+        android:background="#E3F2FD"/>
+
+    <Button
+        android:id="@+id/testLlmButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Test LLM: Say Hello"
+        android:layout_marginTop="4dp"/>
+
+    <TextView
+        android:id="@+id/llmResponseText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="(LLM response will appear here)"
+        android:textSize="12sp"
+        android:fontFamily="monospace"
+        android:padding="8dp"
+        android:background="#F5F5F5"
+        android:minHeight="60dp"/>
+
     <!-- System Context -->
     <TextView
         android:id="@+id/systemContextText"
