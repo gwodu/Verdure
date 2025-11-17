@@ -285,40 +285,21 @@ class MainActivity : AppCompatActivity() {
             card.isFocusable = true
             card.setOnClickListener {
                 try {
-                    // Create ActivityOptions to allow background activity launch
-                    val options = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                        android.app.ActivityOptions.makeBasic().apply {
-                            setPendingIntentBackgroundActivityStartMode(
-                                android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-                            )
-                        }.toBundle()
-                    } else {
-                        null
-                    }
-
                     // Send the PendingIntent to launch the app
-                    if (options != null) {
-                        // Android 14+: Use options to allow background activity start
-                        notif.contentIntent.send(
-                            this@MainActivity,
-                            0,
-                            null,
-                            options
-                        )
-                    } else {
-                        // Android < 14: Use basic send
-                        notif.contentIntent.send(
-                            this@MainActivity,
-                            0,
-                            null
-                        )
-                    }
+                    // Note: Use startIntentSender for better compatibility
+                    this@MainActivity.startIntentSender(
+                        notif.contentIntent.intentSender,
+                        null,
+                        0,
+                        0,
+                        0
+                    )
                 } catch (e: Exception) {
-                    android.util.Log.e("MainActivity", "Failed to send PendingIntent", e)
+                    android.util.Log.e("MainActivity", "Failed to launch notification", e)
                     android.widget.Toast.makeText(
                         this@MainActivity,
-                        "Failed to open notification: ${e.message}",
-                        android.widget.Toast.LENGTH_LONG
+                        "Failed to open: ${e.message}",
+                        android.widget.Toast.LENGTH_SHORT
                     ).show()
                 }
             }
