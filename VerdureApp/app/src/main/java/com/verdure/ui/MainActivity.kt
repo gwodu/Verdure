@@ -285,13 +285,25 @@ class MainActivity : AppCompatActivity() {
             card.isFocusable = true
             card.setOnClickListener {
                 try {
+                    // Create ActivityOptions to allow background activity launch
+                    val options = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        android.app.ActivityOptions.makeBasic().apply {
+                            setPendingIntentBackgroundActivityStartMode(
+                                android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                            )
+                        }.toBundle()
+                    } else {
+                        null
+                    }
+
                     // Send the PendingIntent to launch the app
                     notif.contentIntent.send(
                         this@MainActivity,
                         0,
                         null,
                         null,
-                        null
+                        null,
+                        options
                     )
                 } catch (e: Exception) {
                     android.util.Log.e("MainActivity", "Failed to send PendingIntent", e)
