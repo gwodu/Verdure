@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Session Start Protocol
+
+**IMPORTANT:** At the start of EVERY new conversation session, Claude Code should automatically:
+1. Read `DEVLOG.md` to understand the latest project state
+2. Identify the most recent session entry and commit hash
+3. Note any "Ready for Testing" items, blockers, or open decisions
+4. Provide a brief status summary (2-3 sentences) without being asked
+
+This ensures Claude is always up-to-date on project progress without manual prompting.
+
 ## Project Overview
 
 **Verdure** is an Android personal AI assistant that provides intelligent, privacy-first assistance through on-device processing. The goal is to create a "silent partner" that intelligently manages processes and notifications without being chatty or intrusive.
