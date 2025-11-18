@@ -25,10 +25,19 @@ jobs:
       working-directory: ./VerdureApp
       run: chmod +x gradlew
 
-    # NOTE: Gemma 3 1B model NOT bundled in APK (too large for Google Play limits)
-    # For development testing: Push model to device via adb (see README.md)
-    # For production: App will download model at runtime on first launch
-    # Model location: /data/local/tmp/llm/gemma-3-1b-q4.task (dev) or cache dir (prod)
+    - name: Download Gemma 3 1B Model
+      run: |
+        echo "Downloading Gemma 3 1B 4-bit quantized model (555 MB)..."
+        mkdir -p VerdureApp/app/src/main/assets/models
+
+        # Download from HuggingFace litert-community/Gemma3-1B-IT
+        # Using smallest q4 model: multi-prefill-seq_q4_ekv2048 (555 MB)
+        wget -q --show-progress \
+          https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task \
+          -O VerdureApp/app/src/main/assets/models/gemma-3-1b-q4.task
+
+        echo "Model downloaded:"
+        ls -lh VerdureApp/app/src/main/assets/models/
 
     - name: Build Debug APK
       working-directory: ./VerdureApp

@@ -5,6 +5,7 @@ import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 
 /**
  * MediaPipe LLM backend for running Gemma 3 1B on-device
@@ -27,6 +28,7 @@ class MediaPipeLLMEngine(private val context: Context) : LLMEngine {
         // Model configuration
         const val MODEL_FILENAME = "gemma-3-1b-q4.task"
         const val MODEL_DEV_PATH = "/data/local/tmp/llm/$MODEL_FILENAME"
+        const val MODEL_ASSET_PATH = "models/$MODEL_FILENAME"
 
         // Inference parameters (MediaPipe defaults)
         const val MAX_TOKENS = 512
@@ -122,25 +124,66 @@ class MediaPipeLLMEngine(private val context: Context) : LLMEngine {
     override fun isReady(): Boolean = isInitialized && llmInference != null
 
     /**
-     * Get the model path, checking both development and production locations
-     * Development: /data/local/tmp/llm/ (pushed via adb)
-     * Production: app cache directory (downloaded at runtime - future implementation)
+     * Get the model path, checking multiple locations:
+     * 1. Development: /data/local/tmp/llm/ (pushed via adb)
+     * 2. Bundled: APK assets/models/ (single-install convenience)
+     * 3. Production: app cache (downloaded at runtime - future)
      */
     private fun getModelPath(): String? {
-        // Check development location first (adb push)
+        // 1. Check development location first (adb push)
         val devFile = File(MODEL_DEV_PATH)
         if (devFile.exists()) {
+            println("📱 Using model from adb location: $MODEL_DEV_PATH")
             return MODEL_DEV_PATH
         }
 
-        // Check app cache (future: runtime download)
+        // 2. Check if model is bundled in APK assets
+        try {
+            context.assets.open(MODEL_ASSET_PATH).use {
+                println("📦 Model found in APK assets, copying to cache...")
+                return copyModelFromAssets()
+            }
+        } catch (e: Exception) {
+            // Model not in assets, continue to next option
+        }
+
+        // 3. Check app cache (future: runtime download)
         val cacheFile = File(context.cacheDir, MODEL_FILENAME)
         if (cacheFile.exists()) {
+            println("💾 Using cached model: ${cacheFile.absolutePath}")
             return cacheFile.absolutePath
         }
 
-        // Model not found
+        // Model not found anywhere
         return null
+    }
+
+    /**
+     * Copy model from APK assets to cache directory
+     * MediaPipe requires a file path, can't load directly from assets
+     */
+    private fun copyModelFromAssets(): String {
+        val cacheFile = File(context.cacheDir, MODEL_FILENAME)
+
+        // If already copied, return it
+        if (cacheFile.exists()) {
+            println("✅ Model already in cache: ${cacheFile.absolutePath}")
+            return cacheFile.absolutePath
+        }
+
+        println("📥 Copying model from assets to cache...")
+        val startTime = System.currentTimeMillis()
+
+        // Copy from assets to cache
+        context.assets.open(MODEL_ASSET_PATH).use { input ->
+            FileOutputStream(cacheFile).use { output ->
+                input.copyTo(output)
+            }
+        }
+
+        val elapsed = System.currentTimeMillis() - startTime
+        println("✅ Model copied to cache in ${elapsed}ms (${cacheFile.length() / 1024 / 1024} MB)")
+        return cacheFile.absolutePath
     }
 
     /**

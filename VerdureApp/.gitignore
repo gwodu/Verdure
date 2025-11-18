@@ -69,4 +69,6 @@ gradle-8.*
 
 # LLM models (too large for git - must be downloaded separately)
 *.gguf
+*.task
 app/src/main/assets/models/*.gguf
+app/src/main/assets/models/*.task
