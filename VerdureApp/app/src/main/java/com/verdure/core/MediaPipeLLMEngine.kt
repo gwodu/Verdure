@@ -68,7 +68,6 @@ class MediaPipeLLMEngine(private val context: Context) : LLMEngine {
                 val options = LlmInference.LlmInferenceOptions.builder()
                     .setModelPath(modelPath)
                     .setMaxTokens(MAX_TOKENS)
-                    .setTopK(TOP_K)
                     .setTemperature(TEMPERATURE)
                     .setRandomSeed(RANDOM_SEED)
                     .build()
