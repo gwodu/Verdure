@@ -25,6 +25,15 @@ jobs:
       working-directory: ./VerdureApp
       run: chmod +x gradlew
 
+    - name: Download Llama 3.2 1B Model
+      run: |
+        echo "Downloading Llama 3.2 1B Q4_K_M model (~770 MB)..."
+        mkdir -p VerdureApp/app/src/main/assets/models
+        wget -q --show-progress \
+          https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf \
+          -O VerdureApp/app/src/main/assets/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf
+        ls -lh VerdureApp/app/src/main/assets/models/
+
     - name: Build Debug APK
       working-directory: ./VerdureApp
       run: ./gradlew assembleDebug --stacktrace
