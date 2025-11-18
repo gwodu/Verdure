@@ -64,64 +64,31 @@ cd VerdureApp
 
 ## DEVLOG Documentation Standards
 
-**CRITICAL:** All development sessions MUST be documented in `DEVLOG.md` with a focus on **decisions and tradeoffs**.
+Document sessions in `DEVLOG.md` focusing on **decisions and tradeoffs only**.
 
-### What to Document
-
-Each DEVLOG entry should answer three questions:
-
-1. **What decisions were made?**
-   - Technical choices (libraries, architectures, approaches)
-   - Rejected alternatives
-   - Pivots and direction changes
-
-2. **Why was that decision made?**
-   - Root cause analysis
-   - Requirements that drove the choice
-   - Problems being solved
-
-3. **What are the tradeoffs?**
-   - Benefits vs costs
-   - What we gained
-   - What we gave up
-   - Acceptable compromises
-
-### Format Example
+### Format
 
 ```markdown
 ## Session X - Date
 
-### Decision: Use MediaPipe instead of llama.cpp
-
-**What:** Switched from llama.cpp to Google MediaPipe for LLM inference
-
-**Why:**
-- llama.cpp not Android-compatible (missing ARM64 native libraries)
-- MediaPipe is official Google solution, includes Android support out-of-box
-- Crashed immediately: `UnsatisfiedLinkError: libllama.so not found`
-
-**Tradeoffs:**
-- ✅ Gain: Zero build complexity, proven Android integration
-- ✅ Gain: Official support, optimized for Pixel devices
-- ❌ Loss: Slightly slower inference (acceptable for background tasks)
-- ❌ Loss: Locked into Google ecosystem (mitigated by LLMEngine abstraction)
+**Decision:** [What was decided]
+**Why:** [Root cause, problem solved]
+**Tradeoff:** [What gained vs what lost]
 ```
 
-### What NOT to Document
+### Example
 
-- ❌ Implementation details (code speaks for itself)
-- ❌ Step-by-step what was done (git log has this)
-- ❌ Generic descriptions without decision rationale
+```markdown
+**Decision:** Java 21 required (not Java 17)
+**Why:** MediaPipe compiled with Java 21, cannot downgrade
+**Tradeoff:** Future-proof LTS vs no backwards compatibility (acceptable, new project)
 
-### Decision Examples to Capture
+**Decision:** Disable Jetifier
+**Why:** Can't process Java 21 bytecode, MediaPipe already uses AndroidX
+**Tradeoff:** Build succeeds vs can't use pre-AndroidX libs (all deps modern)
+```
 
-- Library choices: "Why MediaPipe over llama.cpp?"
-- Architecture patterns: "Why LLMEngine abstraction?"
-- Build decisions: "Why Java 21? Why disable Jetifier?"
-- Feature cuts: "Why skip model bundling in APK?"
-- Workarounds: "Why adb push instead of APK assets?"
-
-**Remember:** Future developers (including you) need to understand **WHY**, not just **WHAT**.
+**Keep it concise. Skip implementation details (git has that). Capture WHY, not WHAT.**
 
 ## Testing
 

@@ -255,70 +255,19 @@ Only **3 lines changed** in MainActivity.kt to swap backends. Zero changes to Ve
 - `CLAUDE.md`: Updated technology stack and dependencies
 - `DEVLOG.md`: Added Session 6 entry
 
-### Decision: Java 21 Required (Not Optional)
+### Key Decisions
 
-**What:** Updated project from Java 17 to Java 21
+**Decision:** Java 21 required (not Java 17)
+**Why:** MediaPipe 0.10.27 compiled with Java 21, cannot load in Java 17 runtime
+**Tradeoff:** Future-proof LTS (2029) vs no backwards compatibility (acceptable, new project)
 
-**Why:**
-- MediaPipe 0.10.27 compiled with Java 21 (class file major version 65)
-- Java is backwards-compatible but NOT forwards-compatible
-- Cannot load Java 21 libraries in Java 17 runtime
-- Error: `Unsupported class file major version 65`
+**Decision:** Disable Jetifier
+**Why:** Jetifier can't process Java 21 bytecode, MediaPipe already uses AndroidX
+**Tradeoff:** Build succeeds vs can't use pre-AndroidX libraries (all deps modern)
 
-**Alternatives Considered:**
-1. **Use older MediaPipe version** (Java 17 compatible)
-   - ❌ May lack Gemma 3 support
-   - ❌ Missing features/optimizations
-   - ❌ No security fixes from 0.10.27
-
-2. **Switch to different LLM library**
-   - ❌ llama.cpp: Not Android-compatible
-   - ❌ TensorFlow Lite: Different API, unclear Gemma support
-   - ❌ ONNX Runtime: More complex integration
-
-3. **Use Java 21** ✅ CHOSEN
-   - ✅ Latest MediaPipe features
-   - ✅ Official Google support
-   - ✅ Java 21 is LTS (Long Term Support until 2029)
-   - ✅ Industry standard for modern Android
-
-**Tradeoffs:**
-- ✅ Gain: Full MediaPipe 0.10.27 feature set
-- ✅ Gain: Gemma 3 1B support
-- ✅ Gain: Future-proof (current LTS)
-- ⚠️ Neutral: No backwards compatibility concerns (new project)
-
-### Decision: Disable Jetifier
-
-**What:** Set `android.enableJetifier=false` in gradle.properties
-
-**Why:**
-- Build failed: Jetifier cannot process Java 21 bytecode
-- Jetifier = legacy tool for migrating pre-AndroidX libraries
-- MediaPipe already uses AndroidX (no migration needed)
-- Error: `Failed to transform using Jetifier: Unsupported class file major version 65`
-
-**Tradeoffs:**
-- ✅ Gain: Build succeeds
-- ✅ Gain: Faster builds (no unnecessary transformation)
-- ❌ Loss: Cannot use pre-AndroidX libraries (acceptable - all deps use AndroidX)
-
-### Decision: Manual Model Setup (adb push)
-
-**What:** Model NOT bundled in APK, requires manual adb push for testing
-
-**Why:**
-- HuggingFace requires authentication for Gemma models (license agreement)
-- CI/CD model download failed: exit code 6 (auth required)
-- Adding HF_TOKEN to GitHub secrets = extra complexity
-- Model bundling = ~600 MB APK (Google Play 150 MB limit)
-
-**Tradeoffs:**
-- ✅ Gain: Simpler CI/CD (no auth secrets)
-- ✅ Gain: Smaller APK (~15 MB vs ~600 MB)
-- ✅ Gain: Faster builds (no 555 MB download)
-- ❌ Loss: Manual setup step (one-time, well-documented)
-- ⚠️ Neutral: Can add bundling later if needed
+**Decision:** Manual model setup via adb (not bundled in APK)
+**Why:** HuggingFace auth required, 600 MB APK exceeds Play Store limits
+**Tradeoff:** 15 MB APK + simple CI vs one-time manual setup (well-documented)
 
 ### Next Steps
 1. **Download Gemma 3 1B model** (~600-800 MB) from HuggingFace
