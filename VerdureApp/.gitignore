@@ -66,3 +66,7 @@ build-output.txt
 # Gradle wrapper (keep the jar but not the downloaded distributions)
 gradle-8.*
 !gradle/wrapper/gradle-wrapper.jar
+
+# LLM models (too large for git - must be downloaded separately)
+*.gguf
+app/src/main/assets/models/*.gguf

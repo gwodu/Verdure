@@ -13,7 +13,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.verdure.R
-import com.verdure.core.MLCLLMEngine
+import com.verdure.core.LlamaCppEngine
 import com.verdure.core.VerdureAI
 import com.verdure.services.CalendarReader
 import com.verdure.services.SystemStateMonitor
@@ -40,7 +40,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var systemStateMonitor: SystemStateMonitor
 
     // AI components
-    private lateinit var llmEngine: MLCLLMEngine
+    private lateinit var llmEngine: LlamaCppEngine
     private lateinit var verdureAI: VerdureAI
 
     companion object {
@@ -86,8 +86,8 @@ class MainActivity : AppCompatActivity() {
      */
     private fun initializeAI() {
         lifecycleScope.launch {
-            // Initialize MLC LLM engine
-            llmEngine = MLCLLMEngine(applicationContext)
+            // Initialize llama.cpp engine with Llama 3.2 1B Q4_K_M
+            llmEngine = LlamaCppEngine(applicationContext)
             val initialized = llmEngine.initialize()
 
             if (initialized) {
@@ -119,7 +119,7 @@ class MainActivity : AppCompatActivity() {
      * Test the LLM by sending a simple "Hello" message.
      * Demonstrates:
      * - VerdureAI request routing
-     * - LLMEngine stub response
+     * - LlamaCppEngine with real Llama 3.2 1B inference
      * - Architecture working end-to-end
      */
     private fun testLlm() {
@@ -128,7 +128,7 @@ class MainActivity : AppCompatActivity() {
                 llmResponseText.text = "Thinking..."
 
                 // Send request through VerdureAI
-                val response = verdureAI.processRequest("Hello! Tell me about yourself.")
+                val response = verdureAI.processRequest("Hello! Tell me about yourself in one sentence.")
 
                 // Display response
                 runOnUiThread {
@@ -136,10 +136,10 @@ class MainActivity : AppCompatActivity() {
                         append("✅ LLM Response:\n\n")
                         append(response)
                         append("\n\n")
-                        append("📊 Architecture verified:")
+                        append("📊 On-device AI verified:")
                         append("\n• VerdureAI routing: working")
-                        append("\n• MLCLLMEngine stub: working")
-                        append("\n• Ready for real LLM integration")
+                        append("\n• LlamaCppEngine: Llama 3.2 1B Q4_K_M")
+                        append("\n• 100% on-device, no cloud")
                     }
                 }
             } catch (e: Exception) {

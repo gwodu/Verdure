@@ -43,15 +43,8 @@ dependencies {
     // AI Edge SDK for Gemini Nano (DEPRECATED - non-functional on Pixel 8A)
     // implementation 'com.google.ai.edge.aicore:aicore:0.0.1-exp01'
 
-    // TODO: Add MLC LLM dependencies for Llama 3.2
-    // MLC LLM requires:
-    // 1. Add Maven repository in settings.gradle or project build.gradle
-    // 2. Add MLC LLM Android library
-    // 3. Download and bundle Llama 3.2 1B quantized model (~550 MB)
-    //
-    // Next steps for MLC LLM integration:
-    // - Install MLC LLM Android SDK from https://mlc.ai/mlc-llm/
-    // - Download pre-compiled Llama-3.2-1B-Instruct-q4f16_1 model
-    // - Place model in app/src/main/assets/models/ directory
-    // - Update MLCLLMEngine.kt to use actual MLC LLM APIs
+    // llama.cpp for on-device LLM inference
+    // Using de.kherud Java bindings for llama.cpp
+    // Supports GGUF models (Llama 3.2 1B Q4_K_M quantized ~700 MB)
+    implementation 'de.kherud:llama:3.0.0'
 }
