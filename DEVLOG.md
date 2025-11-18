@@ -269,12 +269,31 @@ Only **3 lines changed** in MainActivity.kt to swap backends. Zero changes to Ve
 **Why:** HuggingFace auth required, 600 MB APK exceeds Play Store limits
 **Tradeoff:** 15 MB APK + simple CI vs one-time manual setup (well-documented)
 
-### Next Steps
-1. **Download Gemma 3 1B model** (~600-800 MB) from HuggingFace
-2. **Push model to Pixel 8A** via adb
-3. **Build APK** via GitHub Actions
-4. **Install and test** - Tap "Test LLM: Say Hello" → See real Gemma response!
-5. **Implement runtime model download** for production use
+### Testing Instructions
+
+**1. Download Model (555 MB)**
+```bash
+wget https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task
+```
+
+**2. Push to Device**
+```bash
+adb shell mkdir -p /data/local/tmp/llm/
+adb push Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task /data/local/tmp/llm/gemma-3-1b-q4.task
+```
+
+**3. Download APK**
+- https://github.com/gwodu/Verdure/actions → Latest run → Artifacts → `verdure-debug-apk`
+
+**4. Install**
+```bash
+adb install -r app-debug.apk
+```
+
+**5. Test**
+- Open Verdure → Grant permissions → Tap "Test LLM: Say Hello"
+
+**Status:** Build succeeded (commit `51a1b35`). Ready for device testing.
 
 ---
 
