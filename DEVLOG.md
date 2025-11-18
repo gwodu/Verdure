@@ -127,12 +127,43 @@ Simple scoring (recency + priority) instead of semantic understanding → Good e
 - `.gitignore`: Exclude *.gguf files
 - `.github/workflows/build-apk.yml`: Auto-download model step
 
-### Next Steps
-1. Push workflow changes (manual: `git push`)
-2. GitHub Actions builds APK with bundled LLM (~800 MB)
-3. Install on Pixel 8A
-4. Test "Say Hello" button → See real Llama 3.2 response!
-5. 100% on-device AI, no internet required
+### Session 5 Continuation - llama.cpp Failure on Android
+
+**What Happened:**
+Pushed code, built APK, installed on Pixel 8A → **Immediate crash on startup**
+
+**Error Analysis:**
+```
+dlopen failed: library "libllama.so" not found
+java.lang.UnsatisfiedLinkError: No native library found for os.name=Linux-Android, os.arch=aarch64
+  at de.kherud.llama.LlamaLoader.loadNativeLibrary(LlamaLoader.java:158)
+  at com.verdure.core.LlamaCppEngine$initialize$2.invokeSuspend(LlamaCppEngine.kt:70)
+```
+
+**Root Cause:**
+`de.kherud:llama:3.0.0` is **not compatible with Android**. It's designed for desktop Java (Windows, Linux, macOS) only.
+
+**Why This Matters:**
+- The library requires native C++ code (`libllama.so`) compiled for Android ARM64
+- The Maven dependency doesn't include Android native libraries
+- Would require building llama.cpp from source with Android NDK (the 3-6 hour complex setup we tried to avoid)
+
+**Decision: Pivot to MediaPipe LLM**
+
+**Why MediaPipe:**
+- Official Google solution for on-device LLM on Android
+- Simple Gradle dependency: `com.google.mediapipe:tasks-genai`
+- Built specifically for Android (includes ARM64 native libraries)
+- Supports Gemma 2B 4-bit quantized (~1.5 GB)
+- Optimized for Pixel 8+
+- Better Android integration than llama.cpp
+
+**Tradeoff:**
+- Slightly larger model (Gemma 2B vs Llama 3.2 1B)
+- Different API (but LLMEngine abstraction handles this easily)
+
+**Architecture Still Valid:**
+The `LLMEngine` abstraction proved its value - we can swap from llama.cpp to MediaPipe by just changing one implementation, zero changes to VerdureAI or tools.
 
 ---
 
@@ -146,12 +177,12 @@ Simple scoring (recency + priority) instead of semantic understanding → Good e
 
 ## Technology Stack Evolution
 
-| Component | Session 1 | Session 4 | Session 5 |
-|-----------|-----------|-----------|-----------|
-| **LLM** | Gemini Nano (unavailable) | MLCLLMEngine (stub) | llama.cpp (real) |
-| **Model** | N/A | N/A | Llama 3.2 1B Q4_K_M |
-| **Architecture** | Notification service only | LLM + Tools + Services | Fully integrated |
-| **Build** | GitHub Actions | GitHub Actions | GitHub Actions + model download |
+| Component | Session 1 | Session 4 | Session 5 (Attempted) | Session 6 (Next) |
+|-----------|-----------|-----------|-----------|-----------|
+| **LLM** | Gemini Nano (unavailable) | MLCLLMEngine (stub) | llama.cpp (❌ not Android compatible) | MediaPipe LLM |
+| **Model** | N/A | N/A | Llama 3.2 1B (failed) | Gemma 2B 4-bit |
+| **Architecture** | Notification service only | LLM + Tools + Services | Fully integrated | Fully integrated |
+| **Build** | GitHub Actions | GitHub Actions | GitHub Actions | GitHub Actions + model download |
 
 ## Current Status (End of Session 5)
 
@@ -160,18 +191,58 @@ Simple scoring (recency + priority) instead of semantic understanding → Good e
 - Calendar integration (CalendarReader)
 - Temporal prioritization (working algorithm)
 - LLM architecture (LLMEngine, VerdureAI, Tools)
-- Real on-device AI (llama.cpp + Llama 3.2 1B)
-- Automated builds with model bundling
+- Automated builds with model download workflow
 
 ⚠️ **Known Limitations:**
 - Notification clicks blocked by Android BAL restrictions (platform limitation)
-- Large APK size (~800 MB due to bundled model)
+- LLM not working yet (llama.cpp incompatible with Android)
 
-🎯 **Ready For:**
-- Real-world testing on Pixel 8A
-- Notification summarization with actual LLM
-- Tool expansion (new capabilities via Tool interface)
-- Model swapping experiments (try different GGUF models)
+❌ **Blocked:**
+- Real on-device AI: llama.cpp doesn't support Android (needs native ARM64 libraries)
+
+## Next Session: MediaPipe LLM Integration
+
+**Goal:** Get real on-device AI working with MediaPipe + Gemma 2B
+
+**Tasks:**
+
+1. **Replace llama.cpp dependency (5 minutes)**
+   ```gradle
+   // Remove: implementation 'de.kherud:llama:3.0.0'
+   // Add: implementation 'com.google.mediapipe:tasks-genai:0.10.27'
+   ```
+
+2. **Download Gemma 2B 4-bit quantized model (~1.5 GB)**
+   - Model: Gemma 2B GPU INT4 from Kaggle or HuggingFace
+   - Format: `.bin` or `.task` (MediaPipe format)
+   - Location: Runtime download or bundle in APK
+
+3. **Implement MediaPipeLLMEngine (30 minutes)**
+   - Create new class implementing `LLMEngine` interface
+   - Use MediaPipe `LlmInference` API
+   - Configure `LlmInferenceOptions` (maxTokens, temperature, topK)
+   - Handle async responses with callbacks
+
+4. **Update MainActivity (2 minutes)**
+   ```kotlin
+   // Change one line:
+   llmEngine = MediaPipeLLMEngine(applicationContext)
+   ```
+
+5. **Test on Pixel 8A (15 minutes)**
+   - Build APK via GitHub Actions
+   - Install on device
+   - Tap "Test LLM: Say Hello" → See real Gemma response!
+
+**Resources:**
+- Guide: https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android
+- Models: Gemma 2B from Kaggle Models
+
+**Expected Result:**
+- Real on-device AI working on Pixel 8A
+- ~2-3 second response time for simple queries
+- 100% privacy (no cloud)
+- Validates LLMEngine abstraction (third backend swap!)
 
 ---
 
