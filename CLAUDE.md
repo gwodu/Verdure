@@ -24,7 +24,7 @@ Key characteristics:
 Instead of relying on unavailable LLM APIs, Verdure focuses on practical, achievable intelligence:
 - Smart notification prioritization using semantic understanding + temporal reasoning
 - On-device processing using lightweight models or rule-based systems
-- Future: Optional small LLM (Llama 3.2 1B) for complex tasks only
+- On-device LLM: Gemma 3 1B (4-bit quantized) via Google MediaPipe
 
 ## Build System
 
@@ -82,7 +82,7 @@ No test framework is currently set up. When adding tests, use the standard Andro
 
 1. **LLM as UX**: Natural language interface, not traditional buttons/menus
 2. **Extensible tools**: Easily add new capabilities by implementing the `Tool` interface
-3. **On-device AI**: All processing happens locally (Llama 3.2 via MLC LLM)
+3. **On-device AI**: All processing happens locally (Gemma 3 1B via MediaPipe)
 4. **Tool orchestration**: LLM decides which tools to use and synthesizes responses
 5. **Privacy-first**: No cloud APIs, all data stays on device
 
@@ -91,7 +91,7 @@ No test framework is currently set up. When adding tests, use the standard Andro
 ```
 User speaks naturally
     ↓
-LLM understands intent (Llama 3.2 on-device)
+LLM understands intent (Gemma 3 1B on-device)
     ↓
 VerdureAI routes to appropriate tool(s)
     ↓
@@ -104,7 +104,7 @@ LLM synthesizes results into natural response
 
 **`LLMEngine`** - Interface for any LLM backend
 - Abstraction allows swapping LLM implementations
-- Current: `MLCLLMEngine` (Llama 3.2 1B via MLC LLM)
+- Current: `MediaPipeLLMEngine` (Gemma 3 1B via Google MediaPipe)
 - Future: Could support other models
 
 **`VerdureAI`** - Central orchestrator
@@ -234,10 +234,11 @@ User: "Remind me to call Mom when I get home"
 
 ### Technology Stack
 
-**LLM:** Llama 3.2 1B (quantized) via MLC LLM
-- ~550 MB model size
+**LLM:** Gemma 3 1B (4-bit quantized) via Google MediaPipe
+- ~600-800 MB model size
 - Runs entirely on-device
 - No internet required
+- Official Google solution for on-device AI
 
 **Android APIs:** Tools interact directly with system
 - `AlarmManager` for reminders
@@ -253,10 +254,11 @@ User: "Remind me to call Mom when I get home"
 - **Android Gradle Plugin**: 8.2.0
 - **AndroidX**: Core KTX, AppCompat, Material Design
 - **Coroutines**: 1.7.3 (for async operations)
-- **MLC LLM**: Latest (for on-device Llama 3.2 inference)
+- **MediaPipe Tasks GenAI**: 0.10.27 (for on-device Gemma 3 1B inference)
 
 **Deprecated:**
-- **AI Edge SDK**: 0.0.1-exp01 (non-functional on Pixel 8A, replaced by MLC LLM)
+- **AI Edge SDK**: 0.0.1-exp01 (non-functional on Pixel 8A)
+- **llama.cpp**: 3.0.0 (not Android-compatible, replaced by MediaPipe)
 
 **Future additions:**
 - TensorFlow Lite (for sentence embeddings)
@@ -290,7 +292,7 @@ The app is in early prototype phase (version 1.0-prototype):
 - NotificationTool's `getRecentNotifications()` returns empty list (not yet implemented)
 - Tool routing is simple keyword matching, not AI-based
 - Only basic UI for testing, no production interface yet
-- GeminiNanoEngine present but non-functional on Pixel 8A (see limitations above)
+- MediaPipeLLMEngine implemented with Gemma 3 1B (requires model pushed via adb for testing)
 
 ## Development Roadmap
 

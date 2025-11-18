@@ -43,8 +43,8 @@ dependencies {
     // AI Edge SDK for Gemini Nano (DEPRECATED - non-functional on Pixel 8A)
     // implementation 'com.google.ai.edge.aicore:aicore:0.0.1-exp01'
 
-    // llama.cpp for on-device LLM inference
-    // Using de.kherud Java bindings for llama.cpp
-    // Supports GGUF models (Llama 3.2 1B Q4_K_M quantized ~700 MB)
-    implementation 'de.kherud:llama:3.0.0'
+    // MediaPipe LLM Inference for on-device AI
+    // Supports Gemma models with 4-bit quantization
+    // Official Google solution for Android LLM inference
+    implementation 'com.google.mediapipe:tasks-genai:0.10.27'
 }

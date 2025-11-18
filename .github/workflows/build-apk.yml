@@ -25,14 +25,10 @@ jobs:
       working-directory: ./VerdureApp
       run: chmod +x gradlew
 
-    - name: Download Llama 3.2 1B Model
-      run: |
-        echo "Downloading Llama 3.2 1B Q4_K_M model (~770 MB)..."
-        mkdir -p VerdureApp/app/src/main/assets/models
-        wget -q --show-progress \
-          https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf \
-          -O VerdureApp/app/src/main/assets/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf
-        ls -lh VerdureApp/app/src/main/assets/models/
+    # NOTE: Gemma 3 1B model NOT bundled in APK (too large for Google Play limits)
+    # For development testing: Push model to device via adb (see README.md)
+    # For production: App will download model at runtime on first launch
+    # Model location: /data/local/tmp/llm/gemma-3-1b-q4.task (dev) or cache dir (prod)
 
     - name: Build Debug APK
       working-directory: ./VerdureApp
