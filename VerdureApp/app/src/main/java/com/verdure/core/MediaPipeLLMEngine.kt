@@ -45,13 +45,19 @@ class MediaPipeLLMEngine(private val context: Context) : LLMEngine {
                 // Check if model exists
                 val modelPath = getModelPath()
                 if (modelPath == null) {
-                    println("❌ Model file not found at: $MODEL_DEV_PATH")
-                    println("   Please push the model to your device using:")
-                    println("   adb shell mkdir -p /data/local/tmp/llm/")
-                    println("   adb push $MODEL_FILENAME /data/local/tmp/llm/")
+                    println("❌ Model file not found")
                     println("")
-                    println("   Download Gemma 3 1B 4-bit from:")
-                    println("   https://huggingface.co/litert-community/gemma-3-1b-4bit")
+                    println("📥 To use Verdure AI, download and push the model:")
+                    println("")
+                    println("1. Download Gemma 3 1B (555 MB):")
+                    println("   wget https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task")
+                    println("")
+                    println("2. Push to device:")
+                    println("   adb shell mkdir -p /data/local/tmp/llm/")
+                    println("   adb push Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task /data/local/tmp/llm/gemma-3-1b-q4.task")
+                    println("")
+                    println("3. Restart Verdure app")
+                    println("")
                     isInitialized = false
                     return@withContext false
                 }
