@@ -147,21 +147,18 @@ Return ONLY the updated JSON, nothing else. Ensure valid JSON format.
         // Get recent notifications from tool
         val notificationsResult = notificationTool.execute(mapOf("action" to "get_all"))
 
+        // Simplified prompt to reduce token usage (MediaPipe limit: 2048 tokens)
         val prompt = """
-You are V, a personal AI assistant made by Verdure. You are helpful, concise, and intelligent.
-(If asked, you can mention you use the Gemma language model, but your name is V.)
+You are V, an AI assistant.
 
-Here is what you know about the user:
+User context: $contextJson
 
-$contextJson
-
-Recent notifications:
+Notifications:
 $notificationsResult
 
-User question: "$userMessage"
+User: "$userMessage"
 
-Based on the user's current goals and priorities, analyze the notifications and provide a helpful response.
-Focus on what's relevant to their question and current context.
+Respond helpfully based on their priorities.
         """.trimIndent()
 
         return llmEngine.generateContent(prompt)

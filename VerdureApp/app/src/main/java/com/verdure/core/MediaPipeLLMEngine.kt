@@ -31,7 +31,7 @@ class MediaPipeLLMEngine(private val context: Context) : LLMEngine {
         const val MODEL_ASSET_PATH = "models/$MODEL_FILENAME"
 
         // Inference parameters (MediaPipe defaults)
-        const val MAX_TOKENS = 512
+        const val MAX_TOKENS = 2048  // Increased from 512 to handle longer prompts
         const val TEMPERATURE = 0.8f
         const val TOP_K = 64
         const val RANDOM_SEED = 0

@@ -23,8 +23,8 @@ class NotificationTool(
 
         // If action is "get_all", just return formatted notification list (no LLM)
         if (action == "get_all") {
-            // Limit to 10 to avoid overwhelming the LLM with huge prompts
-            val notifications = getRecentNotifications(limit = 10)
+            // Limit to 3 to avoid exceeding MediaPipe's token limit (512 tokens total)
+            val notifications = getRecentNotifications(limit = 3)
             if (notifications.isEmpty()) {
                 return "No notifications available."
             }
