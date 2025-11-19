@@ -17,24 +17,24 @@ class NotificationFilter(private val userContext: UserContext) {
 
         // Check app name match
         val appMatch = rules.apps.any { app ->
-            notification.appName.contains(app, ignoreCase = true)
+            notification.appName?.contains(app, ignoreCase = true) == true
         }
 
         // Check keyword match in title or text
         val keywordMatch = rules.keywords.any { keyword ->
-            notification.title.contains(keyword, ignoreCase = true) ||
-                    notification.text.contains(keyword, ignoreCase = true)
+            notification.title?.contains(keyword, ignoreCase = true) == true ||
+                    notification.text?.contains(keyword, ignoreCase = true) == true
         }
 
         // Check domain match (for email notifications)
         val domainMatch = rules.domains.any { domain ->
-            notification.title.contains(domain, ignoreCase = true) ||
-                    notification.text.contains(domain, ignoreCase = true)
+            notification.title?.contains(domain, ignoreCase = true) == true ||
+                    notification.text?.contains(domain, ignoreCase = true) == true
         }
 
         // Check sender match
         val senderMatch = rules.senders.any { sender ->
-            notification.title.contains(sender, ignoreCase = true)
+            notification.title?.contains(sender, ignoreCase = true) == true
         }
 
         val isPriority = appMatch || keywordMatch || domainMatch || senderMatch
