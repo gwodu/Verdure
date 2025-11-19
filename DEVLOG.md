@@ -297,4 +297,145 @@ adb install -r app-debug.apk
 
 ---
 
+## Session 7 - November 19, 2025
+
+### What Was Done
+- **Successfully tested MediaPipe LLM on Pixel 8A** (model push via adb, "Test LLM" button worked)
+- Designed intelligent notification priority system with hybrid architecture
+- Specified user context file format (JSON) and content structure
+- Defined two operating modes: "Setup for Future" vs "Responsive Today"
+
+### Why
+
+**Problem:** Need notification prioritization that learns from user preferences conversationally
+
+**Example use case:**
+- User: "I'm applying to grad school, prioritize professor emails"
+- Verdure should:
+  1. Update heuristics for future notifications (add keywords/domains automatically)
+  2. Search current notifications immediately (be responsive today)
+
+**Key insight:** Heuristic filtering alone is too rigid. Pure LLM analysis is too slow/battery-intensive. Need both.
+
+### Architecture Decision: Hybrid System
+
+**Layer 1: Heuristic Filter (Fast, No LLM)**
+- Simple keyword + app + domain matching using rules from user context file
+- Runs on every incoming notification instantly
+- Binary classification: PRIORITY or NOT_PRIORITY
+- Example rules: keywords=["professor", "deadline"], apps=["Gmail"], domains=[".edu"]
+
+**Layer 2: User Context File (JSON)**
+- Stores user goals, priority rules, conversation memory
+- Always loaded by Gemma when processing requests
+- Gemma can read AND update this file
+- Size: ~200-400 tokens (negligible, < 5% of 8k context window)
+
+**Layer 3: On-Demand Gemma Analysis**
+- Only runs when user explicitly asks (e.g., "What's urgent today?")
+- Loads context file + recent notifications (last 100, priority-flagged first)
+- Total tokens: ~3500 (< 50% of context window) - fast, no RAM issues
+- Gemma uses context to semantically analyze notifications
+
+### Two Operating Modes
+
+**Mode A: Setup for Future (Update Heuristics)**
+```
+User: "Prioritize emails from professors about grad school"
+→ Gemma updates context.json:
+   - Adds keywords: ["professor", "grad school"]
+   - Adds domains: [".edu"]
+   - Updates goals: ["Applying to grad school"]
+→ Future notifications auto-filtered by new heuristic
+```
+
+**Mode B: Responsive Today (Search & Analyze)**
+```
+User: "What's urgent about grad school?"
+→ Gemma loads context (knows user goal)
+→ Searches recent notifications with semantic understanding
+→ Returns prioritized results based on context
+```
+
+### Key Decisions
+
+**Decision #1: JSON over TOML**
+**Why:** Native Android support (no dependency), Gemma reliably generates valid JSON, zero overhead
+**Tradeoff:** Less human-readable than TOML, no comments (acceptable, can use "notes" field)
+
+**Decision #2: On-Demand Gemma (not real-time)**
+**Why:** Battery efficiency, aligns with "silent partner" philosophy
+**Tradeoff:** Not instant analysis vs practical battery life (acceptable, user asks when needed)
+
+**Decision #3: No RAG (Retrieval Augmented Generation)**
+**Why:** Context file stays small (~300 tokens), recent notifications (~2000 tokens), total < 50% of 8k context
+**Tradeoff:** Can't search months of old notifications vs simpler architecture (acceptable for MVP)
+
+**Decision #4: Heuristic + LLM (not pure ML embeddings)**
+**Why:** Heuristic handles 80% of cases instantly, LLM provides intelligence when needed
+**Rejected:** Sentence transformers, TensorFlow Lite embeddings (unnecessary complexity)
+**Tradeoff:** Less "smart" filtering vs practical speed/battery (acceptable)
+
+### Heuristic Capabilities & Limitations
+
+**What Android NotificationListenerService provides:**
+- App name, notification title, notification text, timestamp
+
+**Can heuristic handle:**
+- ✅ Specific apps (Snapchat, Gmail, Claude)
+- ✅ Specific people (if name in title: "Sarah sent you a Snap")
+- ✅ Keywords in text ("interview", "deadline")
+- ⚠️ Limited semantic understanding (can't distinguish conversation context)
+
+**Example - Snapchat:**
+- Notification: "Sarah sent you a Snap"
+- Heuristic matches: App="Snapchat" + keyword="Sarah" → PRIORITY ✅
+
+**Example - Claude:**
+- Notification: "Claude: I've finished your code review"
+- Heuristic matches: App="Claude" + keyword="code review" → PRIORITY ✅
+- Limitation: If notification just says "Claude replied", heuristic can't distinguish which conversation
+- Solution: Gemma Mode B analyzes semantically when user asks
+
+**Design philosophy:** Heuristic is fast but dumb. Gemma is smart but slower. Use both strategically.
+
+### Implementation Plan (Next Session)
+
+**Order of development:**
+1. `UserContext.kt` - JSON read/write, data classes (prove Gemma can update JSON)
+2. `NotificationFilter.kt` - Heuristic filtering using context rules (prove fast classification)
+3. Connect them - Gemma-driven heuristic updates (conversational rule changes)
+4. Mode A: Update heuristics via conversation
+5. Mode B: Search & analyze notifications with context
+
+### Technical Validation
+
+**Context window math:**
+- Gemma 3 1B context: 8192 tokens
+- User context file: ~300 tokens (3.7%)
+- Recent notifications (100): ~2000 tokens (24%)
+- System prompt + response: ~500 tokens (6%)
+- **Total: ~2800 tokens (34% of capacity)** - plenty of headroom ✅
+
+**Performance expectations:**
+- Heuristic filter: < 10ms per notification (no LLM)
+- Gemma analysis: ~8-12 tokens/sec (2-5 seconds for response)
+- Battery impact: Minimal (LLM only runs on user request, not background)
+
+### Current Status
+
+✅ **Complete:**
+- MediaPipe LLM tested and working on Pixel 8A
+- Architecture designed (hybrid heuristic + LLM system)
+- User context file structure specified
+- Two-mode operation defined
+
+🔧 **Ready to Build:**
+- UserContext system (JSON management)
+- NotificationFilter (heuristic classification)
+- Gemma prompt templates (Mode A: update rules, Mode B: analyze)
+- Chat interface for user interaction
+
+---
+
 *Development philosophy: Build working systems incrementally. Validate architecture before adding complexity. Ship value early, optimize later.*
