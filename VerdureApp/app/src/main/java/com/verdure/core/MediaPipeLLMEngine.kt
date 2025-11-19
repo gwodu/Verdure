@@ -100,7 +100,8 @@ class MediaPipeLLMEngine(private val context: Context) : LLMEngine {
         return withContext(Dispatchers.IO) {
             try {
                 println("🤖 MediaPipeLLMEngine: Generating response...")
-                println("   Prompt: ${prompt.take(100)}...")
+                println("   Prompt length: ${prompt.length} characters")
+                println("   Prompt preview: ${prompt.take(100)}...")
 
                 val startTime = System.currentTimeMillis()
 

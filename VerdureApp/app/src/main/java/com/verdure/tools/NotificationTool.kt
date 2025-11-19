@@ -23,7 +23,8 @@ class NotificationTool(
 
         // If action is "get_all", just return formatted notification list (no LLM)
         if (action == "get_all") {
-            val notifications = getRecentNotifications(limit = 100)
+            // Limit to 10 to avoid overwhelming the LLM with huge prompts
+            val notifications = getRecentNotifications(limit = 10)
             if (notifications.isEmpty()) {
                 return "No notifications available."
             }
@@ -68,10 +69,22 @@ Provide a brief, clear summary.
      */
     private fun formatNotificationsForContext(notifications: List<NotificationData>): String {
         return notifications.mapIndexed { index, notif ->
-            val title = notif.title ?: "(no title)"
-            val text = notif.text ?: "(no text)"
-            "${index + 1}. ${notif.appName}: $title - $text (${notif.timestamp})"
+            // Sanitize text to avoid special characters that might crash LLM
+            val title = sanitizeText(notif.title ?: "(no title)")
+            val text = sanitizeText(notif.text ?: "(no text)")
+            val timeDesc = notif.getFormattedTime()
+            "${index + 1}. ${notif.appName}: $title - $text ($timeDesc)"
         }.joinToString("\n")
+    }
+
+    /**
+     * Sanitize text to remove potentially problematic characters
+     */
+    private fun sanitizeText(text: String): String {
+        return text
+            .replace("\u0000", "") // Remove null bytes
+            .replace(Regex("[\\p{C}&&[^\\n\\r\\t]]"), "") // Remove other control characters except newlines/tabs
+            .take(200) // Limit length per field
     }
 
     /**
