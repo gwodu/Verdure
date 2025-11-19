@@ -571,6 +571,59 @@ The crash revealed token limits, not architecture flaws. System design is sound.
 - VerdureAI routing handles Mode A/B seamlessly
 - No architecture changes needed, just parameter tuning
 
+### Testing Results & New Limitation Discovered
+
+**✅ Success:** Emergency fix worked! App no longer crashes when asking about priorities.
+
+**⚠️ New Problem:** 3 notifications is **too limiting** for real-world use.
+
+**User feedback:** "3 notifications is not enough. We need the model to be able to parse through all those notifications."
+
+**The Tradeoff:**
+- ✅ 3 notifications = stable, no crashes
+- ❌ 3 notifications = insufficient context for useful analysis
+- Users may have 20-100 notifications at any given time
+- Only seeing 3 means missing important information
+
+**Potential Solutions (Next Session):**
+
+**Option 1: Increase MAX_TOKENS to model's actual limit**
+- Gemma 3 1B likely supports 2048-8192 tokens (need to test max)
+- Current: 2048, could try 4096 or 8192
+- Tradeoff: Higher memory/slower vs more notifications per query
+
+**Option 2: Batched processing**
+- Process notifications in chunks of 3, combine results
+- "Analyzing batch 1/5... batch 2/5..."
+- Tradeoff: Slower (multiple LLM calls) vs complete coverage
+
+**Option 3: Two-pass filtering**
+- Pass 1: Heuristic filter reduces 100 → 20 priority notifications
+- Pass 2: LLM analyzes filtered 20 (or top 10 by priority score)
+- Tradeoff: Relies on heuristic accuracy vs efficient token usage
+
+**Option 4: Hierarchical summarization**
+- Older notifications: Brief summaries only ("3 Slack messages, 2 emails")
+- Recent notifications: Full details
+- Tradeoff: Complexity vs token efficiency
+
+**Option 5: Smart compression**
+- Remove common words, compress JSON format
+- Abbreviate repeated app names
+- Tradeoff: Less readable prompts vs more notifications fit
+
+**Recommended Approach (Hypothesis):**
+Combine Option 1 + Option 3:
+1. Test MAX_TOKENS up to 8192 (Gemma's likely limit)
+2. Use heuristic filter to pre-sort notifications
+3. Send top 15-20 priority notifications to LLM
+4. Total budget: ~300 (context) + ~1500 (notifications) + ~200 (prompt/response) = ~2000 tokens
+
+**Decision Required:** Which approach to implement? Need to test:
+- What's Gemma 3 1B's actual token limit?
+- How many notifications fit in 4096 tokens? 8192?
+- Does batching provide better UX than single large context?
+
 ---
 
 *Development philosophy: Build working systems incrementally. Validate architecture before adding complexity. Ship value early, optimize later.*
