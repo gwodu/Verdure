@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import com.verdure.R
 import com.verdure.core.MediaPipeLLMEngine
 import com.verdure.core.VerdureAI
+import com.verdure.data.UserContextManager
 import com.verdure.services.CalendarReader
 import com.verdure.services.SystemStateMonitor
 import com.verdure.services.VerdureNotificationListener
@@ -91,8 +92,11 @@ class MainActivity : AppCompatActivity() {
             val initialized = llmEngine.initialize()
 
             if (initialized) {
-                // Create VerdureAI orchestrator
-                verdureAI = VerdureAI(llmEngine)
+                // Initialize user context manager
+                val contextManager = UserContextManager.getInstance(applicationContext)
+
+                // Create VerdureAI orchestrator with context
+                verdureAI = VerdureAI(llmEngine, contextManager)
 
                 // Register tools
                 verdureAI.registerTool(NotificationTool(llmEngine))

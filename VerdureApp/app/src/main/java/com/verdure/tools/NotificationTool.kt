@@ -19,6 +19,18 @@ class NotificationTool(
     override val description: String = "Analyzes and prioritizes notifications based on importance and urgency"
 
     override suspend fun execute(params: Map<String, Any>): String {
+        val action = params["action"] as? String
+
+        // If action is "get_all", just return formatted notification list (no LLM)
+        if (action == "get_all") {
+            val notifications = getRecentNotifications(limit = 100)
+            if (notifications.isEmpty()) {
+                return "No notifications available."
+            }
+            return formatNotificationsForContext(notifications)
+        }
+
+        // Otherwise, use LLM to analyze (original behavior)
         val userQuery = params["query"] as? String ?: "What's important?"
 
         // Read notifications from the Service's StateFlow
@@ -29,11 +41,7 @@ class NotificationTool(
         }
 
         // Format notifications for LLM analysis
-        val notificationList = notifications.mapIndexed { index, notif ->
-            val title = notif.title ?: "(no title)"
-            val text = notif.text ?: "(no text)"
-            "${index + 1}. ${notif.appName}: $title - $text"
-        }.joinToString("\n")
+        val notificationList = formatNotificationsForContext(notifications)
 
         val prompt = """
 You are a notification prioritization assistant. Analyze these notifications and categorize them:
@@ -53,6 +61,17 @@ Provide a brief, clear summary.
         """.trimIndent()
 
         return llmEngine.generateContent(prompt)
+    }
+
+    /**
+     * Format notifications for context/analysis
+     */
+    private fun formatNotificationsForContext(notifications: List<NotificationData>): String {
+        return notifications.mapIndexed { index, notif ->
+            val title = notif.title ?: "(no title)"
+            val text = notif.text ?: "(no text)"
+            "${index + 1}. ${notif.appName}: $title - $text (${notif.timestamp})"
+        }.joinToString("\n")
     }
 
     /**

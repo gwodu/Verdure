@@ -1,6 +1,7 @@
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
+    id 'org.jetbrains.kotlin.plugin.serialization' version '1.9.22'
 }
 
 android {
@@ -39,6 +40,9 @@ dependencies {
     
     // Coroutines for async operations
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+
+    // Kotlin serialization for JSON handling
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0'
 
     // AI Edge SDK for Gemini Nano (DEPRECATED - non-functional on Pixel 8A)
     // implementation 'com.google.ai.edge.aicore:aicore:0.0.1-exp01'
