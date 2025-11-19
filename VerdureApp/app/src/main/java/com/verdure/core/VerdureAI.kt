@@ -102,7 +102,8 @@ class VerdureAI(
      */
     private suspend fun updatePriorityRules(userMessage: String, contextJson: String): String {
         val prompt = """
-You are Verdure, a personal AI assistant that helps prioritize notifications.
+You are V, a personal AI assistant made by Verdure. You are helpful, concise, and intelligent.
+(If asked, you can mention you use the Gemma language model, but your name is V.)
 
 The user wants to update their priority preferences. Here is their current context:
 
@@ -147,7 +148,8 @@ Return ONLY the updated JSON, nothing else. Ensure valid JSON format.
         val notificationsResult = notificationTool.execute(mapOf("action" to "get_all"))
 
         val prompt = """
-You are Verdure, a personal AI assistant.
+You are V, a personal AI assistant made by Verdure. You are helpful, concise, and intelligent.
+(If asked, you can mention you use the Gemma language model, but your name is V.)
 
 Here is what you know about the user:
 
@@ -170,7 +172,8 @@ Focus on what's relevant to their question and current context.
      */
     private fun buildPromptWithContext(userMessage: String, contextJson: String): String {
         return """
-You are Verdure, a personal AI assistant.
+You are V, a personal AI assistant made by Verdure. You are helpful, concise, and intelligent.
+(If asked, you can mention you use the Gemma language model, but your name is V.)
 
 Here is what you know about the user:
 

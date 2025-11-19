@@ -7,6 +7,9 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -31,11 +34,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var systemContextText: TextView
     private lateinit var calendarEventsText: TextView
     private lateinit var notificationListText: TextView
-    private lateinit var notificationListContainer: android.widget.LinearLayout
+    private lateinit var notificationListContainer: LinearLayout
 
-    // LLM test components
-    private lateinit var testLlmButton: Button
-    private lateinit var llmResponseText: TextView
+    // Chat components
+    private lateinit var chatInput: EditText
+    private lateinit var sendButton: Button
+    private lateinit var chatHistoryContainer: LinearLayout
+    private lateinit var chatScrollView: ScrollView
 
     private lateinit var calendarReader: CalendarReader
     private lateinit var systemStateMonitor: SystemStateMonitor
@@ -59,9 +64,11 @@ class MainActivity : AppCompatActivity() {
         notificationListText = findViewById(R.id.notificationListText)
         notificationListContainer = findViewById(R.id.notificationListContainer)
 
-        // LLM test components
-        testLlmButton = findViewById(R.id.testLlmButton)
-        llmResponseText = findViewById(R.id.llmResponseText)
+        // Chat components
+        chatInput = findViewById(R.id.chatInput)
+        sendButton = findViewById(R.id.sendButton)
+        chatHistoryContainer = findViewById(R.id.chatHistoryContainer)
+        chatScrollView = findViewById(R.id.chatScrollView)
 
         calendarReader = CalendarReader(applicationContext)
         systemStateMonitor = SystemStateMonitor(applicationContext)
@@ -73,9 +80,9 @@ class MainActivity : AppCompatActivity() {
             requestAllPermissions()
         }
 
-        // LLM test button handler
-        testLlmButton.setOnClickListener {
-            testLlm()
+        // Chat send button handler
+        sendButton.setOnClickListener {
+            sendMessage()
         }
 
         checkPermissionsAndSetup()
@@ -104,53 +111,126 @@ class MainActivity : AppCompatActivity() {
                 println("✅ Verdure AI initialized successfully")
                 println("   Tools registered: ${verdureAI.getAvailableTools().size}")
 
-                // Enable test button once AI is ready
+                // Enable chat once AI is ready
                 runOnUiThread {
-                    testLlmButton.isEnabled = true
-                    testLlmButton.text = "Test LLM: Say Hello ✓"
+                    sendButton.isEnabled = true
+                    chatInput.isEnabled = true
                 }
             } else {
                 println("❌ Failed to initialize Verdure AI")
                 runOnUiThread {
-                    testLlmButton.isEnabled = false
-                    testLlmButton.text = "LLM Failed to Initialize"
+                    sendButton.isEnabled = false
+                    chatInput.isEnabled = false
+                    addMessageToChat("System", "Failed to initialize AI. Check model setup.")
                 }
             }
         }
     }
 
     /**
-     * Test the LLM by sending a simple "Hello" message.
-     * Demonstrates:
-     * - VerdureAI request routing
-     * - LlamaCppEngine with real Llama 3.2 1B inference
-     * - Architecture working end-to-end
+     * Send user message and get V's response
      */
-    private fun testLlm() {
+    private fun sendMessage() {
+        val userMessage = chatInput.text.toString().trim()
+        if (userMessage.isEmpty()) return
+
+        // Clear input
+        chatInput.text.clear()
+
+        // Show user message
+        addMessageToChat("You", userMessage)
+
+        // Disable input while processing
+        sendButton.isEnabled = false
+        chatInput.isEnabled = false
+
         lifecycleScope.launch {
             try {
-                llmResponseText.text = "Thinking..."
+                // Show thinking indicator
+                val thinkingView = addMessageToChat("V", "Thinking...")
 
-                // Send request through VerdureAI
-                val response = verdureAI.processRequest("Hello! Tell me about yourself in one sentence.")
+                // Get response from VerdureAI
+                val response = verdureAI.processRequest(userMessage)
 
-                // Display response
+                // Remove thinking indicator and show response
                 runOnUiThread {
-                    llmResponseText.text = buildString {
-                        append("✅ LLM Response:\n\n")
-                        append(response)
-                        append("\n\n")
-                        append("📊 On-device AI verified:")
-                        append("\n• VerdureAI routing: working")
-                        append("\n• MediaPipeLLMEngine: Gemma 3 1B (4-bit)")
-                        append("\n• 100% on-device, no cloud")
-                    }
+                    chatHistoryContainer.removeView(thinkingView)
+                    addMessageToChat("V", response)
+                    scrollToBottom()
+
+                    // Re-enable input
+                    sendButton.isEnabled = true
+                    chatInput.isEnabled = true
+                    chatInput.requestFocus()
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    llmResponseText.text = "❌ Error: ${e.message}"
+                    chatHistoryContainer.findViewWithTag<TextView>("thinking")?.let {
+                        chatHistoryContainer.removeView(it)
+                    }
+                    addMessageToChat("System", "❌ Error: ${e.message}")
+                    sendButton.isEnabled = true
+                    chatInput.isEnabled = true
                 }
             }
+        }
+    }
+
+    /**
+     * Add a message to the chat history
+     */
+    private fun addMessageToChat(sender: String, message: String): TextView {
+        val messageView = TextView(this).apply {
+            text = "$sender: $message"
+            textSize = 14f
+            setPadding(16, 16, 16, 16)
+
+            // Style based on sender
+            when (sender) {
+                "You" -> {
+                    setBackgroundColor(android.graphics.Color.parseColor("#E3F2FD"))
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        setMargins(0, 0, 0, 8)
+                    }
+                }
+                "V" -> {
+                    setBackgroundColor(android.graphics.Color.parseColor("#E8F5E9"))
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        setMargins(0, 0, 0, 8)
+                    }
+                    if (message == "Thinking...") {
+                        tag = "thinking"
+                    }
+                }
+                else -> {
+                    setBackgroundColor(android.graphics.Color.parseColor("#FFEBEE"))
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        setMargins(0, 0, 0, 8)
+                    }
+                }
+            }
+        }
+
+        chatHistoryContainer.addView(messageView)
+        scrollToBottom()
+        return messageView
+    }
+
+    /**
+     * Scroll chat to bottom
+     */
+    private fun scrollToBottom() {
+        chatScrollView.post {
+            chatScrollView.fullScroll(ScrollView.FOCUS_DOWN)
         }
     }
 

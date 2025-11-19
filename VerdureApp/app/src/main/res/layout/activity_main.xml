@@ -21,34 +21,70 @@
         android:text="Enable Permissions"
         android:layout_marginTop="8dp"/>
 
-    <!-- LLM Test Section -->
+    <!-- Chat with V Section -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="🤖 LLM TEST"
+        android:text="💬 CHAT WITH V"
         android:textSize="14sp"
         android:textStyle="bold"
         android:padding="8dp"
         android:layout_marginTop="16dp"
         android:background="#E3F2FD"/>
 
-    <Button
-        android:id="@+id/testLlmButton"
+    <!-- Chat History -->
+    <ScrollView
+        android:id="@+id/chatScrollView"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Test LLM: Say Hello"
-        android:layout_marginTop="4dp"/>
-
-    <TextView
-        android:id="@+id/llmResponseText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="(LLM response will appear here)"
-        android:textSize="12sp"
-        android:fontFamily="monospace"
-        android:padding="8dp"
+        android:layout_height="0dp"
+        android:layout_weight="0.4"
         android:background="#F5F5F5"
-        android:minHeight="60dp"/>
+        android:padding="8dp">
+
+        <LinearLayout
+            android:id="@+id/chatHistoryContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="V: Hi! I'm V, your personal AI assistant. How can I help you today?"
+                android:textSize="14sp"
+                android:padding="8dp"
+                android:background="#E8F5E9"
+                android:layout_marginBottom="4dp"/>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Chat Input -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp">
+
+        <EditText
+            android:id="@+id/chatInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Type your message..."
+            android:inputType="textCapSentences|textMultiLine"
+            android:maxLines="3"
+            android:padding="12dp"
+            android:background="@android:drawable/edit_text"/>
+
+        <Button
+            android:id="@+id/sendButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Send"
+            android:layout_marginStart="8dp"/>
+
+    </LinearLayout>
 
     <!-- System Context -->
     <TextView
