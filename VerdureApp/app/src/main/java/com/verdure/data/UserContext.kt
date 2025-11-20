@@ -15,18 +15,32 @@ data class UserProfile(
 
 /**
  * Priority rules for heuristic notification filtering
+ * Now uses scoring instead of binary classification
  */
 @Serializable
 data class PriorityRules(
+    // User-specified keywords (learned from conversations)
     val keywords: List<String> = listOf(
         "urgent", "deadline", "interview", "important", "asap", "response needed"
     ),
-    val apps: List<String> = listOf(
-        "Gmail", "Outlook", "Calendar", "Messages"
+
+    // App categorization for base scoring (can be updated by LLM)
+    val highPriorityApps: List<String> = listOf(
+        "Gmail", "Outlook", "Mail", "Calendar", "Messages", "Slack", "Teams"
     ),
+    val financialApps: List<String> = listOf(
+        "Bank", "Venmo", "PayPal", "Cash App", "Chase", "Wells Fargo"
+    ),
+    val neutralApps: List<String> = listOf(
+        "Instagram", "WhatsApp", "Facebook", "Twitter", "Snapchat", "TikTok"
+    ),
+
+    // Domains for boosting (email domains)
     val domains: List<String> = listOf(
         ".edu", ".gov"
     ),
+
+    // Specific senders to prioritize
     val senders: List<String> = emptyList()
 )
 
