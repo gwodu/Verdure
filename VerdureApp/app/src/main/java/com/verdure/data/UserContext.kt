@@ -40,8 +40,11 @@ data class PriorityRules(
         ".edu", ".gov"
     ),
 
-    // Specific senders to prioritize
-    val senders: List<String> = emptyList()
+    // Specific senders to prioritize (email addresses)
+    val senders: List<String> = emptyList(),
+
+    // Important contacts/people (names, not emails)
+    val contacts: List<String> = emptyList()
 )
 
 /**

@@ -80,21 +80,58 @@ class VerdureAI(
         // Route based on intent
         return when (intentResponse.intent) {
             "update_priorities" -> {
-                intentResponse.changes?.let { changes ->
-                    Log.d(TAG, "Applying priority changes: $changes")
-                    contextManager.applyPriorityChanges(changes)
+                intentResponse.changes?.let { rawChanges ->
+                    // Validate changes before applying
+                    val validatedChanges = validatePriorityChanges(rawChanges)
+                    Log.d(TAG, "Applying validated priority changes: $validatedChanges")
+                    contextManager.applyPriorityChanges(validatedChanges)
                 }
                 intentResponse.message
             }
-            "analyze_notifications" -> {
-                // Future: Optionally enhance with actual notification data
-                intentResponse.message
+            "query_priorities", "analyze_notifications" -> {
+                // Hybrid approach: Fetch actual notifications and synthesize
+                synthesizeNotifications(userMessage, contextJson)
             }
             else -> {
-                // General conversation
+                // General conversation (chat)
                 intentResponse.message
             }
         }
+    }
+
+    /**
+     * Synthesize notifications for query_priorities and analyze_notifications intents
+     *
+     * Makes a second LLM call with actual notification data.
+     * Only called when user asks about their priorities or notifications.
+     */
+    private suspend fun synthesizeNotifications(userMessage: String, contextJson: String): String {
+        val notificationTool = tools["notification_filter"]
+
+        if (notificationTool == null) {
+            return "I don't have access to your notifications right now."
+        }
+
+        // Get top priority notifications (limit to 8 to stay within token budget)
+        val notificationsResult = notificationTool.execute(mapOf("action" to "get_priority", "limit" to 8))
+
+        // Second LLM call to synthesize
+        val synthesisPrompt = """
+You are V, a helpful personal assistant.
+
+User context:
+$contextJson
+
+Priority notifications:
+$notificationsResult
+
+User: "$userMessage"
+
+Provide a helpful summary of their priority notifications. Be concise (1-2 sentences per notification).
+        """.trimIndent()
+
+        Log.d(TAG, "Synthesizing notifications with second LLM call")
+        return llmEngine.generateContent(synthesisPrompt)
     }
 
     /**
@@ -117,18 +154,47 @@ User: "$userMessage"
 
 Respond with JSON:
 {
-  "intent": "update_priorities" | "analyze_notifications" | "chat",
-  "changes": { "add_keywords": [], "add_high_priority_apps": [], "add_senders": [], "add_domains": [], "remove_keywords": [], "remove_high_priority_apps": [], "remove_senders": [], "remove_domains": [] },
-  "message": "[your helpful response based on the context]"
+  "intent": "update_priorities" | "query_priorities" | "analyze_notifications" | "chat",
+  "changes": { "add_keywords": [], "add_high_priority_apps": [], "add_senders": [], "add_contacts": [], "add_domains": [], "remove_keywords": [], "remove_high_priority_apps": [], "remove_senders": [], "remove_contacts": [], "remove_domains": [] },
+  "message": "[your helpful response]"
 }
 
 Intents:
-- update_priorities: User wants to change priorities
-- analyze_notifications: User asks about notifications
-- chat: General conversation
+- update_priorities: User wants to ADD/REMOVE priorities (prioritize, focus, ignore, deprioritize)
+- query_priorities: User asks WHAT their current priorities are
+- analyze_notifications: User asks about THEIR NOTIFICATIONS
+- chat: Everything else (greetings, questions, conversation)
+
+Rules:
+- add_senders: Email addresses only (user@example.com)
+- add_contacts: Person names only (John, Sarah, Mom)
+- add_domains: Must start with . (like .edu, .gov)
+- NOT update_priorities: "Hi", "How are you", "What are my priorities"
+
+Example:
+User: "prioritize Outlook messages from John"
+{"intent":"update_priorities","changes":{"add_high_priority_apps":["Outlook"],"add_contacts":["John"]},"message":"I've prioritized Outlook and messages from John."}
 
 Output only JSON.
         """.trimIndent()
+    }
+
+    /**
+     * Validate and sanitize priority changes
+     * Rejects nonsensical changes like "Whatsapp" as a domain
+     */
+    private fun validatePriorityChanges(changes: PriorityChanges): PriorityChanges {
+        return changes.copy(
+            // Domains must start with "."
+            add_domains = changes.add_domains.filter { it.startsWith(".") },
+            remove_domains = changes.remove_domains.filter { it.startsWith(".") },
+
+            // Filter out empty strings
+            add_keywords = changes.add_keywords.filter { it.isNotBlank() },
+            add_high_priority_apps = changes.add_high_priority_apps.filter { it.isNotBlank() },
+            add_contacts = changes.add_contacts.filter { it.isNotBlank() },
+            add_senders = changes.add_senders.filter { it.isNotBlank() }
+        )
     }
 
     /**

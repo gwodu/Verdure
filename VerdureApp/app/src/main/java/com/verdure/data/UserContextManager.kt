@@ -119,7 +119,8 @@ class UserContextManager private constructor(private val context: Context) {
                     financialApps = (rules.financialApps + changes.add_financial_apps).distinct(),
                     neutralApps = (rules.neutralApps + changes.add_neutral_apps).distinct(),
                     senders = (rules.senders + changes.add_senders - changes.remove_senders.toSet()).distinct(),
-                    domains = (rules.domains + changes.add_domains - changes.remove_domains.toSet()).distinct()
+                    domains = (rules.domains + changes.add_domains - changes.remove_domains.toSet()).distinct(),
+                    contacts = (rules.contacts + changes.add_contacts - changes.remove_contacts.toSet()).distinct()
                 )
             )
         }

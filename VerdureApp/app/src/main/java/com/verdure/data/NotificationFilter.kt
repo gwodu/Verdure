@@ -29,6 +29,7 @@ class NotificationFilter(private val userContext: UserContext) {
         private const val SCORE_USER_KEYWORD = 2
         private const val SCORE_DOMAIN = 2
         private const val SCORE_SENDER = 2
+        private const val SCORE_CONTACT = 2
 
         // General high-priority keywords
         private const val SCORE_URGENT_KEYWORD = 3
@@ -52,7 +53,7 @@ class NotificationFilter(private val userContext: UserContext) {
     /**
      * Score a single notification
      * Returns the numerical score (higher = more important)
-     * Score is capped at 12 to prevent over-prioritization
+     * Score is capped at 24 to prevent over-prioritization
      */
     fun scoreNotification(notification: NotificationData): Int {
         var score = 0
@@ -67,26 +68,29 @@ class NotificationFilter(private val userContext: UserContext) {
         // 3. Domain matching (e.g., .edu, .gov)
         score += getDomainScore(notification, rules)
 
-        // 4. Sender matching
+        // 4. Sender matching (email addresses)
         score += getSenderScore(notification, rules)
 
-        // 5. General high-priority keywords (urgent, critical, etc.)
+        // 5. Contact matching (person names)
+        score += getContactScore(notification, rules)
+
+        // 6. General high-priority keywords (urgent, critical, etc.)
         score += getUrgentKeywordScore(notification)
 
-        // 6. Temporal keywords (due, deadline, today, tomorrow)
+        // 7. Temporal keywords (due, deadline, today, tomorrow)
         score += getTemporalKeywordScore(notification)
 
-        // 7. Personal reference ("you", "your")
+        // 8. Personal reference ("you", "your")
         score += getPersonalReferenceScore(notification)
 
-        // 8. Calendar event temporal scoring (if this is a calendar notification)
+        // 9. Calendar event temporal scoring (if this is a calendar notification)
         score += getCalendarTemporalScore(notification)
 
-        // Cap score at 12 (roughly 2x typical high-priority score)
+        // Cap score at 24 (roughly 4x typical high-priority score)
         // Prevents over-prioritization when many factors match
-        val cappedScore = score.coerceAtMost(12)
+        val cappedScore = score.coerceAtMost(24)
 
-        Log.d(TAG, "Score ${cappedScore}${if (score > 12) " (capped from $score)" else ""}: ${notification.appName} - ${notification.title}")
+        Log.d(TAG, "Score ${cappedScore}${if (score > 24) " (capped from $score)" else ""}: ${notification.appName} - ${notification.title}")
 
         return cappedScore
     }
@@ -169,6 +173,19 @@ class NotificationFilter(private val userContext: UserContext) {
         rules.senders.forEach { sender ->
             if (title.contains(sender.lowercase())) {
                 score += SCORE_SENDER
+            }
+        }
+
+        return score
+    }
+
+    private fun getContactScore(notification: NotificationData, rules: PriorityRules): Int {
+        val content = "${notification.title} ${notification.text}".lowercase()
+        var score = 0
+
+        rules.contacts.forEach { contact ->
+            if (content.contains(contact.lowercase())) {
+                score += SCORE_CONTACT
             }
         }
 

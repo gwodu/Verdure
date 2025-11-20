@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
  * Structured response from LLM including intent and actions
  *
  * This enables single-pass intent detection where Gemma outputs:
- * 1. The detected intent (update_priorities, analyze_notifications, chat)
+ * 1. The detected intent (update_priorities, query_priorities, analyze_notifications, chat)
  * 2. Any priority changes to apply (if update_priorities)
  * 3. A natural language response to the user
  *
@@ -16,9 +16,9 @@ import kotlinx.serialization.Serializable
  *   "intent": "update_priorities",
  *   "changes": {
  *     "add_high_priority_apps": ["Discord"],
- *     "add_senders": ["james.deck@example.com"]
+ *     "add_contacts": ["John"]
  *   },
- *   "message": "I've prioritized Discord and emails from James Deck."
+ *   "message": "I've prioritized Discord and messages from John."
  * }
  * ```
  */
@@ -27,6 +27,7 @@ data class IntentResponse(
     /**
      * The detected user intent
      * - "update_priorities": User wants to change what's important
+     * - "query_priorities": User asks what their current priorities are
      * - "analyze_notifications": User asks about their notifications
      * - "chat": General conversation
      */
@@ -86,16 +87,22 @@ data class PriorityChanges(
     val add_neutral_apps: List<String> = emptyList(),
 
     /**
-     * Email senders to prioritize
-     * Example: ["professor@university.edu", "james deck"]
+     * Email senders to prioritize (email addresses)
+     * Example: ["professor@university.edu", "boss@company.com"]
      */
     val add_senders: List<String> = emptyList(),
 
     /**
-     * Email domains to prioritize
+     * Email domains to prioritize (must start with .)
      * Example: [".edu", ".gov"]
      */
     val add_domains: List<String> = emptyList(),
+
+    /**
+     * Important contacts/people to prioritize (names, not emails)
+     * Example: ["John", "Sarah", "Mom"]
+     */
+    val add_contacts: List<String> = emptyList(),
 
     /**
      * Keywords to remove from priority list
@@ -119,5 +126,11 @@ data class PriorityChanges(
      * Domains to remove from priority list
      * Example: [".marketing"]
      */
-    val remove_domains: List<String> = emptyList()
+    val remove_domains: List<String> = emptyList(),
+
+    /**
+     * Contacts to remove from priority list
+     * Example: ["ex-coworker"]
+     */
+    val remove_contacts: List<String> = emptyList()
 )
