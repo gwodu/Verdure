@@ -626,4 +626,239 @@ Combine Option 1 + Option 3:
 
 ---
 
+## Session 9 - November 19, 2025
+
+### What Was Done
+- Implemented multi-factor notification scoring system (8 factors)
+- Replaced binary priority classification with score-based ranking
+- Updated NEXT_STEPS.md with adaptive heuristic learning roadmap
+- Verified build success via GitHub Actions
+
+### Why
+
+**Problem:** Binary heuristic (priority vs not-priority) is too rigid. Can't distinguish between "very urgent" and "somewhat important."
+
+**Solution:** Multi-factor scoring that considers:
+1. App-based scoring (email/calendar +2, financial +2, social 0, unknown -1)
+2. User-specified keywords learned via Mode A (+2 each)
+3. Domain matching (.edu, .gov: +2)
+4. Sender matching (specific people: +2)
+5. General urgent keywords (urgent, critical, asap: +3)
+6. Temporal keywords (due, deadline, today: +2)
+7. Personal reference (you, your: +1)
+8. Calendar event temporal proximity (30min: +5, 24hr: +3, 7day: +1)
+
+**Priority threshold:** Score >= 2 considered priority
+
+**Result:** Notifications sorted by score (highest first), only priority notifications passed to LLM for synthesis.
+
+### Key Decision: Score-Based Ranking Over Binary Classification
+
+**Chose:** Multi-factor scoring with threshold
+**Rejected:** Binary PRIORITY/NOT_PRIORITY classification
+
+**Why:**
+- Binary system can't distinguish degrees of importance
+- Users need to see most important first, not just "important vs not"
+- Scoring enables learning: user says "prioritize X" → bump X's score factor
+- Backward compatible: score >= 2 threshold maintains priority concept
+
+**Tradeoff:** Slightly more complex logic vs much more useful prioritization (acceptable, worth the complexity)
+
+### Architecture Evolution: Toward Adaptive Learning
+
+**Next goal:** LLM-driven heuristic updates
+
+**Vision:**
+```
+User: "I want to focus on Discord more, and messages from this person"
+→ LLM calls updateHeuristic(app="Discord", sender="person@example.com")
+→ System boosts Discord notifications by +2
+→ Persists to disk (survives app restart)
+→ Future Discord notifications automatically score higher
+```
+
+**Why this matters:**
+- Current system requires manual code changes to update priorities
+- Users should teach the system conversationally via Mode A
+- Scoring system now supports dynamic weight adjustments
+- Architecture ready: just need HeuristicUpdateTool + persistence layer
+
+### Technical Implementation
+
+**PriorityRules data structure:**
+- Separate lists: `highPriorityApps`, `financialApps`, `neutralApps`
+- User-learned keywords stored in context.json
+- Scoring logic in `NotificationFilter.calculatePriorityScore()`
+
+**NotificationFilter changes:**
+- `filterPriority()` now returns sorted-by-score results
+- Each notification gets a score (can be negative, positive, or neutral)
+- Only notifications with score >= 2 passed to LLM
+
+### Files Changed
+- `NotificationFilter.kt` - Implemented multi-factor scoring
+- `PriorityRules.kt` - Restructured with separate app categories
+- `NEXT_STEPS.md` - Documented adaptive learning roadmap
+
+**Commit:** `1e4db71`
+**Build:** ✅ Passing (verified via GitHub Actions)
+
+### Current Status
+
+✅ **Complete:**
+- Multi-factor notification scoring
+- Score-based prioritization and ranking
+- Context-aware temporal scoring (calendar events)
+- User-learned keywords integration (via context.json)
+
+🔧 **Ready to Build (Next Session):**
+- `HeuristicUpdateTool` - Allow LLM to modify PriorityRules
+- `PriorityRulesRepository` - Persist rules to disk (JSON)
+- LLM intent detection for heuristic updates
+- Testing: "prioritize X" → rule updates → persists → future notifications score higher
+
+### Lessons Learned
+
+**Scoring > Binary classification:**
+- Real-world importance is a spectrum, not binary
+- Scores enable teaching: user can boost/lower specific factors
+- Multi-factor approach is extensible: easy to add new scoring dimensions
+
+**Design for learning from day 1:**
+- Architecture should assume rules will change (don't hardcode)
+- Separate data (PriorityRules) from logic (NotificationFilter)
+- User context file already supports learned keywords, ready for more
+
+**Incremental complexity:**
+- Session 8: Binary heuristic (working foundation)
+- Session 9: Multi-factor scoring (better prioritization)
+- Session 10 (planned): LLM-driven updates (adaptive learning)
+- Each step builds on previous, validates before adding next layer
+
+---
+
+## Session 10 - November 20, 2025
+
+### What Was Done
+- Researched MediaPipe function calling capabilities (AI Edge FC SDK exists but adds dependency)
+- Designed single-pass intent detection architecture (structured JSON output)
+- Created comprehensive implementation plan in NEXT_STEPS.md
+- Defined 3 core intents: `update_priorities`, `analyze_notifications`, `chat`
+- Specified delta-based priority changes (add/remove items from lists)
+
+### Why
+
+**Problem:** Need robust intent detection without keyword brittleness, but don't want 2x LLM calls (performance/battery hit)
+
+**Solution:** Single-pass structured output
+- Gemma outputs JSON with intent + changes + message in ONE call
+- No performance penalty (1 LLM call vs 2)
+- Handles any phrasing (not just "prioritize" keyword)
+- Supports multiple intents in one message
+
+### Key Decisions
+
+**Decision #1: Structured Output Parsing over Function Calling SDK**
+**Why:** MediaPipe supports function calling via `localagents-fc:0.1.0`, but adds dependency that couples us to MediaPipe
+**Tradeoff:** Manual JSON parsing (simpler) vs official FC SDK (more robust but less portable)
+**Chosen:** Manual JSON parsing - keeps LLM swappable, minimal dependencies
+
+**Decision #2: Delta Changes over Full Context Replacement**
+**Why:** More token-efficient, safer (existing data preserved), explicit about what changed
+**Example:**
+```json
+{
+  "intent": "update_priorities",
+  "changes": {
+    "add_high_priority_apps": ["Discord"],
+    "add_senders": ["james deck"]
+  },
+  "message": "I've prioritized Discord and emails from James Deck."
+}
+```
+
+**Decision #3: Three Intents (Not Four)**
+**Why:** `query_priorities` doesn't need separate intent - LLM can answer from context in `chat` mode
+**Intents:**
+1. `update_priorities` - Change what's important
+2. `analyze_notifications` - Ask about notifications
+3. `chat` - Everything else (includes answering "what are my priorities?")
+
+**Decision #4: Score Cap at 12**
+**Why:** Max realistic score without boosts is ~6-8, cap at 12 (roughly 2x) prevents over-prioritization
+**Implementation:** `return score.coerceAtMost(12)` in NotificationFilter
+
+### Architecture Validation
+
+The single-pass approach solves the performance vs robustness tradeoff:
+- ✅ No extra latency (1 LLM call)
+- ✅ Robust intent detection (any phrasing)
+- ✅ LLM-agnostic (just JSON parsing)
+- ✅ Supports multiple intents naturally
+
+Gemma can compose responses that address multiple parts of a request ("what are my priorities? also prioritize work emails") without special handling.
+
+### Implementation Status
+
+📋 **Plan Created (NEXT_STEPS.md):**
+- Phase 1: Data structures (IntentResponse, PriorityChanges)
+- Phase 2: UserContextManager.applyPriorityChanges()
+- Phase 3: VerdureAI refactor with structured output
+- Phase 4: Score cap implementation
+- Phase 5: Testing & validation
+
+⚠️ **Future Considerations (Next Iteration):**
+
+**1. Installed Apps Tracking**
+- **Issue:** User can prioritize apps not installed on their phone
+- **Need:** Track installed apps via PackageManager
+- **Solution:**
+  - Listen for `ACTION_PACKAGE_ADDED` / `ACTION_PACKAGE_REMOVED` broadcasts
+  - Maintain list of installed apps
+  - Validate priority changes against installed apps
+  - Warn user if they prioritize non-existent app
+  - Auto-add new apps to context when installed
+
+**2. Error Handling Improvements**
+- **JSON parsing failures:**
+  - Current: Graceful fallback to `chat` intent
+  - Future: Log failures, track parse success rate, improve prompt if needed
+- **Non-existent app prioritization:**
+  - Current: Silently adds to highPriorityApps (won't match any notifications)
+  - Future: Validate against installed apps, suggest alternatives
+  - Example: User says "prioritize WhatsApp" but has "WhatsApp Business" → suggest correction
+- **Malformed changes:**
+  - Empty strings in lists
+  - Duplicate entries
+  - Invalid email formats in senders
+  - Future: Validation layer before applying changes
+
+**3. User Feedback Loop**
+- When priority changes fail validation, explain why
+- Suggest corrections: "WhatsApp isn't installed, but you have WhatsApp Business"
+- Show before/after when changes applied successfully
+
+### Files to Modify (Next Session)
+- Create: `IntentResponse.kt`
+- Modify: `UserContextManager.kt` (add applyPriorityChanges)
+- Modify: `VerdureAI.kt` (refactor processRequest with structured output)
+- Modify: `NotificationFilter.kt` (add score cap)
+
+### Current Status
+
+✅ **Planning Complete:**
+- Single-pass intent detection architecture designed
+- Implementation plan documented
+- Data structures specified
+- Error handling considerations noted
+
+🔧 **Ready to Implement:**
+- All code snippets prepared in NEXT_STEPS.md
+- Clear phase-by-phase approach
+- Test cases defined
+- Success criteria established
+
+---
+
 *Development philosophy: Build working systems incrementally. Validate architecture before adding complexity. Ship value early, optimize later.*

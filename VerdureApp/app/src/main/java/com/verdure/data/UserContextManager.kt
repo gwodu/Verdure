@@ -99,6 +99,32 @@ class UserContextManager private constructor(private val context: Context) {
         }
     }
 
+    /**
+     * Apply priority changes (add/remove items from lists)
+     *
+     * This is the delta-based approach for updating priorities.
+     * Instead of replacing the entire context, we apply specific changes.
+     *
+     * @param changes The delta changes to apply
+     * @return The updated UserContext
+     */
+    suspend fun applyPriorityChanges(changes: PriorityChanges): UserContext {
+        return updateContext { current ->
+            val rules = current.priorityRules
+
+            current.copy(
+                priorityRules = rules.copy(
+                    keywords = (rules.keywords + changes.add_keywords - changes.remove_keywords.toSet()).distinct(),
+                    highPriorityApps = (rules.highPriorityApps + changes.add_high_priority_apps - changes.remove_high_priority_apps.toSet()).distinct(),
+                    financialApps = (rules.financialApps + changes.add_financial_apps).distinct(),
+                    neutralApps = (rules.neutralApps + changes.add_neutral_apps).distinct(),
+                    senders = (rules.senders + changes.add_senders - changes.remove_senders.toSet()).distinct(),
+                    domains = (rules.domains + changes.add_domains - changes.remove_domains.toSet()).distinct()
+                )
+            )
+        }
+    }
+
     // Internal helpers (must be called within mutex lock)
 
     private fun loadContextInternal(): UserContext {

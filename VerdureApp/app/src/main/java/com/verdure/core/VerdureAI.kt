@@ -1,192 +1,223 @@
 package com.verdure.core
 
+import android.util.Log
 import com.verdure.data.UserContextManager
 import com.verdure.data.NotificationData
+import com.verdure.data.IntentResponse
+import com.verdure.data.PriorityChanges
 import com.verdure.tools.Tool
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Central AI orchestrator for Verdure
  *
  * This is the "brain" that:
- * 1. Manages all available tools (NotificationTool, DayPlannerTool, etc.)
- * 2. Routes user requests to appropriate tools
- * 3. Synthesizes responses from multiple tools
- * 4. Falls back to direct LLM conversation when no tool matches
+ * 1. Manages all available tools (NotificationTool, etc.)
+ * 2. Uses single-pass LLM intent detection (structured JSON output)
+ * 3. Routes based on detected intent (update_priorities, analyze_notifications, chat)
+ * 4. Applies priority changes when user teaches the system
  * 5. Maintains user context (goals, priorities, rules)
- * 6. Updates heuristics based on user preferences (Mode A)
- * 7. Analyzes notifications with context (Mode B)
  *
- * For prototype: Simple keyword-based routing
- * Future: Use LLM to intelligently select tools based on user intent
+ * Architecture: Single-pass structured output
+ * - One LLM call outputs: intent + changes + message
+ * - No performance penalty vs keyword routing
+ * - Handles any phrasing, not just specific keywords
  */
 class VerdureAI(
     private val llmEngine: LLMEngine,
     private val contextManager: UserContextManager
 ) {
 
+    companion object {
+        private const val TAG = "VerdureAI"
+    }
+
     // Registry of all available tools
     private val tools = mutableMapOf<String, Tool>()
-    
+
+    // JSON parser for structured output
+    private val json = Json { ignoreUnknownKeys = true }
+
     /**
      * Register a tool to be available for use
      * Call this during app initialization for each tool you want to enable
-     * 
+     *
      * Example: verdureAI.registerTool(NotificationTool())
      */
     fun registerTool(tool: Tool) {
         tools[tool.name] = tool
-        println("✅ Registered tool: ${tool.name} - ${tool.description}")
+        Log.d(TAG, "Registered tool: ${tool.name} - ${tool.description}")
     }
-    
+
     /**
      * Process a user request and return a response
-     * Always loads user context before processing
      *
-     * Flow:
+     * New architecture: Single-pass intent detection
      * 1. Load user context
-     * 2. Analyze user message
-     * 3. Determine which tool(s) to use (or none)
-     * 4. Execute tool(s)
-     * 5. Return synthesized response
+     * 2. Build structured output prompt
+     * 3. LLM generates JSON with intent + changes + message
+     * 4. Parse JSON response
+     * 5. Route based on intent and apply changes
+     * 6. Return natural language response
      *
      * @param userMessage The user's input/question
      * @return AI-generated response
      */
     suspend fun processRequest(userMessage: String): String {
-        // Load current user context
-        val context = contextManager.loadContext()
         val contextJson = contextManager.getContextAsJson()
 
-        // Simple keyword-based routing for prototype
-        // TODO: Later, use Gemini to intelligently select tools
-        val lowerMessage = userMessage.lowercase()
+        // Single LLM call with structured output
+        val prompt = buildStructuredOutputPrompt(userMessage, contextJson)
+        val llmOutput = llmEngine.generateContent(prompt)
 
-        return when {
-            // Mode A: Update priorities/heuristics
-            "prioritize" in lowerMessage ||
-            "priority" in lowerMessage ||
-            "important" in lowerMessage && ("make" in lowerMessage || "set" in lowerMessage) -> {
-                println("🔧 Mode A: Updating heuristics")
-                updatePriorityRules(userMessage, contextJson)
-            }
+        Log.d(TAG, "LLM output: ${llmOutput.take(200)}...")
 
-            // Mode B: Analyze notifications with context
-            "notification" in lowerMessage ||
-            "urgent" in lowerMessage ||
-            "what's" in lowerMessage && ("important" in lowerMessage || "urgent" in lowerMessage) -> {
-                val notificationTool = tools["notification_filter"]
-                if (notificationTool != null) {
-                    println("🔧 Mode B: Analyzing notifications with context")
-                    analyzeNotificationsWithContext(userMessage, contextJson, notificationTool)
-                } else {
-                    "Notification filtering tool not available. Please check setup."
+        // Parse JSON response
+        val intentResponse = parseIntentResponse(llmOutput)
+
+        Log.d(TAG, "Detected intent: ${intentResponse.intent}")
+
+        // Route based on intent
+        return when (intentResponse.intent) {
+            "update_priorities" -> {
+                intentResponse.changes?.let { changes ->
+                    Log.d(TAG, "Applying priority changes: $changes")
+                    contextManager.applyPriorityChanges(changes)
                 }
+                intentResponse.message
             }
-
-            // Default: Direct conversation with LLM (context included)
+            "analyze_notifications" -> {
+                // Future: Optionally enhance with actual notification data
+                intentResponse.message
+            }
             else -> {
-                println("💬 Direct LLM conversation with context")
-                val prompt = buildPromptWithContext(userMessage, contextJson)
-                llmEngine.generateContent(prompt)
+                // General conversation
+                intentResponse.message
             }
         }
     }
 
     /**
-     * Mode A: Update priority rules based on user request
-     * Example: "Prioritize emails from professors about grad school"
-     * → Gemma updates keywords, domains, and goals in context file
+     * Build structured output prompt for single-pass intent detection
+     *
+     * Instructs Gemma to output JSON with:
+     * - intent: update_priorities, analyze_notifications, or chat
+     * - changes: delta changes to apply (if update_priorities)
+     * - message: natural language response
      */
-    private suspend fun updatePriorityRules(userMessage: String, contextJson: String): String {
-        val prompt = """
-You are V, a personal AI assistant made by Verdure. You are helpful, concise, and intelligent.
-(If asked, you can mention you use the Gemma language model, but your name is V.)
+    private fun buildStructuredOutputPrompt(userMessage: String, contextJson: String): String {
+        return """
+You are V, an AI assistant for Verdure.
 
-The user wants to update their priority preferences. Here is their current context:
-
+User context (current priorities and settings):
 $contextJson
 
-User request: "$userMessage"
+User message: "$userMessage"
 
-Analyze their request and update the context JSON to reflect their new priorities.
-- Add relevant keywords to priorityRules.keywords
-- Add relevant domains to priorityRules.domains (e.g., .edu for universities)
-- Add relevant apps to priorityRules.apps
-- Update userProfile.currentGoals if they mention a goal
-- Update userProfile.activePriorities if relevant
+Analyze the user's intent and respond with ONLY valid JSON in this format:
 
-Return ONLY the updated JSON, nothing else. Ensure valid JSON format.
+{
+  "intent": "<one of: update_priorities, analyze_notifications, chat>",
+  "changes": {
+    "add_keywords": ["keyword1", "keyword2"],
+    "add_high_priority_apps": ["App1"],
+    "add_senders": ["sender@example.com"],
+    "add_domains": [".edu"],
+    "remove_keywords": [],
+    "remove_high_priority_apps": []
+  },
+  "message": "Your natural language response to the user"
+}
+
+Intent detection rules:
+- "update_priorities": User wants to change what's important (prioritize, focus on, ignore, boost, deprioritize)
+- "analyze_notifications": User asks about their notifications (what's urgent, what's important, show notifications)
+- "chat": Everything else (questions, conversation, asking about current priorities)
+
+Important:
+- For "update_priorities": Include ALL changes in the "changes" object
+- For "chat" or "analyze_notifications": Set "changes" to null
+- ALWAYS include a helpful "message" field with your natural response
+- Output ONLY the JSON object, no extra text before or after
+
+Examples:
+
+User: "prioritize Discord and emails from james deck"
+{
+  "intent": "update_priorities",
+  "changes": {
+    "add_high_priority_apps": ["Discord"],
+    "add_senders": ["james deck", "james.deck@"]
+  },
+  "message": "Got it! I've prioritized Discord and emails from James Deck. Future notifications from these sources will be scored higher."
+}
+
+User: "what are my priorities today, I should focus more on work emails"
+{
+  "intent": "update_priorities",
+  "changes": {
+    "add_keywords": ["work"]
+  },
+  "message": "Your current priorities include ${contextJson.take(50)}... I've also added work emails to your priorities."
+}
+
+User: "what's urgent?"
+{
+  "intent": "analyze_notifications",
+  "changes": null,
+  "message": "Let me check your urgent notifications..."
+}
+
+User: "how are you?"
+{
+  "intent": "chat",
+  "changes": null,
+  "message": "I'm doing well, thanks for asking! How can I help you today?"
+}
+
+Now respond to the user's message with valid JSON:
         """.trimIndent()
+    }
 
-        val updatedJson = llmEngine.generateContent(prompt)
+    /**
+     * Parse LLM output into IntentResponse
+     *
+     * Handles cases where LLM adds extra text around JSON.
+     * Falls back to treating response as chat if JSON parsing fails.
+     */
+    private fun parseIntentResponse(llmOutput: String): IntentResponse {
+        try {
+            // Try to extract JSON from response (handle cases where LLM adds extra text)
+            val jsonStart = llmOutput.indexOf('{')
+            val jsonEnd = llmOutput.lastIndexOf('}') + 1
 
-        // Try to parse and save the updated context
-        val result = contextManager.updateFromJson(updatedJson)
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                val jsonString = llmOutput.substring(jsonStart, jsonEnd)
+                return json.decodeFromString<IntentResponse>(jsonString)
+            }
 
-        return if (result.isSuccess) {
-            "✅ Updated your priority preferences! New rules are active for future notifications."
-        } else {
-            "I understood your request, but had trouble updating the settings. Please try again."
+            // Fallback: treat as chat
+            Log.w(TAG, "No JSON found in LLM output, treating as chat")
+            return IntentResponse(
+                intent = "chat",
+                changes = null,
+                message = llmOutput
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse intent response, treating as chat", e)
+            return IntentResponse(
+                intent = "chat",
+                changes = null,
+                message = llmOutput
+            )
         }
     }
 
-    /**
-     * Mode B: Analyze notifications with user context
-     * Example: "What's urgent about grad school?"
-     * → Gemma loads context (knows user is applying to grad school)
-     * → Searches notifications for relevant + urgent items
-     */
-    private suspend fun analyzeNotificationsWithContext(
-        userMessage: String,
-        contextJson: String,
-        notificationTool: Tool
-    ): String {
-        // Get recent notifications from tool
-        val notificationsResult = notificationTool.execute(mapOf("action" to "get_all"))
-
-        // Simplified prompt to reduce token usage (MediaPipe limit: 2048 tokens)
-        val prompt = """
-You are V, an AI assistant.
-
-User context: $contextJson
-
-Notifications:
-$notificationsResult
-
-User: "$userMessage"
-
-Respond helpfully based on their priorities.
-        """.trimIndent()
-
-        return llmEngine.generateContent(prompt)
-    }
-
-    /**
-     * Build a prompt that includes user context as system knowledge
-     */
-    private fun buildPromptWithContext(userMessage: String, contextJson: String): String {
-        return """
-You are V, a personal AI assistant made by Verdure. You are helpful, concise, and intelligent.
-(If asked, you can mention you use the Gemma language model, but your name is V.)
-
-Here is what you know about the user:
-
-$contextJson
-
-User: $userMessage
-
-Respond helpfully and naturally.
-        """.trimIndent()
-    }
-    
     /**
      * List all available tools (useful for debugging)
      */
     fun getAvailableTools(): List<Tool> = tools.values.toList()
-    
+
     /**
      * Check if a specific tool is registered
      */

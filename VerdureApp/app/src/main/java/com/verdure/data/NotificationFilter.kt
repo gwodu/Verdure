@@ -52,6 +52,7 @@ class NotificationFilter(private val userContext: UserContext) {
     /**
      * Score a single notification
      * Returns the numerical score (higher = more important)
+     * Score is capped at 12 to prevent over-prioritization
      */
     fun scoreNotification(notification: NotificationData): Int {
         var score = 0
@@ -81,9 +82,13 @@ class NotificationFilter(private val userContext: UserContext) {
         // 8. Calendar event temporal scoring (if this is a calendar notification)
         score += getCalendarTemporalScore(notification)
 
-        Log.d(TAG, "Score ${score}: ${notification.appName} - ${notification.title}")
+        // Cap score at 12 (roughly 2x typical high-priority score)
+        // Prevents over-prioritization when many factors match
+        val cappedScore = score.coerceAtMost(12)
 
-        return score
+        Log.d(TAG, "Score ${cappedScore}${if (score > 12) " (capped from $score)" else ""}: ${notification.appName} - ${notification.title}")
+
+        return cappedScore
     }
 
     /**
