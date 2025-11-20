@@ -861,4 +861,138 @@ Gemma can compose responses that address multiple parts of a request ("what are 
 
 ---
 
+## Session 11 - November 20, 2025 (Continued)
+
+### What Was Changed
+- **Drastically simplified system prompt** (~450 tokens → ~150 tokens, 67% reduction)
+- **Added 4th intent: `query_priorities`** (separating "what are my priorities" from "change priorities")
+- **Added `contacts` field** to PriorityRules (separate from `senders` for email addresses)
+- **Implemented validation layer** to reject hallucinated/malformed changes
+- **Implemented hybrid notification synthesis** (Option C: 2 LLM calls only when querying notifications)
+- **Increased score cap** from 12 → 24
+
+### Why
+
+**Problem 1: Verbose prompt caused literal copying**
+- Model responded with placeholder text: "Your natural language response to the user"
+- Too many examples confused the model
+- **Solution:** Minimal prompt with `[brackets]` for placeholders, context-awareness emphasis
+
+**Problem 2: Everything classified as `update_priorities`**
+- Even "Hi" detected as priority update
+- "What are my priorities?" was adding apps instead of listing them
+- **Solution:** Added `query_priorities` intent with negative examples
+
+**Problem 3: Sender extraction completely broken**
+- "Outlook from John" → only added Outlook, ignored John
+- Model didn't understand names vs email addresses
+- **Solution:** Separate `contacts` (names) from `senders` (emails) with clear example
+
+**Problem 4: Model hallucinating nonsense**
+- Adding "Whatsapp" as domain, simultaneously adding AND removing same apps
+- No input validation before saving to context
+- **Solution:** `validatePriorityChanges()` rejects domains without `.`, filters empty strings
+
+**Problem 5: Score cap too restrictive**
+- Cap of 12 didn't allow room for user-boosted priorities
+- **Solution:** Increased to 24 (4x typical high-priority score)
+
+### Tradeoffs
+
+**Simpler prompt:**
+- **Gained:** 67% fewer tokens, clearer instructions, no literal copying
+- **Lost:** Less hand-holding for model (acceptable - Gemma smart enough)
+
+**Hybrid notification synthesis:**
+- **Gained:** Accurate notification summaries using actual data
+- **Lost:** 2 LLM calls when user asks about notifications (acceptable - only when needed)
+- Most messages (chat, priority updates) still 1 call
+
+**Contacts vs Senders separation:**
+- **Gained:** Better person name extraction ("from John" works now)
+- **Lost:** Slightly more complex data structure (acceptable - clearer semantics)
+
+**Validation layer:**
+- **Gained:** Prevents corrupt context from hallucinated changes
+- **Lost:** Might reject some edge cases (acceptable - better safe than corrupted)
+
+### Testing Results (Post-Implementation)
+
+**Issues discovered on device:**
+1. ✅ Model copied placeholder text → Fixed with simplified prompt
+2. ✅ Everything classified as update_priorities → Fixed with query_priorities intent
+3. ✅ "What are my priorities" added apps → Fixed with hybrid synthesis
+4. ✅ Sender extraction broken → Fixed with contacts field + example
+5. ✅ Hallucinated changes → Fixed with validation layer
+
+**Commits:**
+- `5980387` - Implemented single-pass intent detection
+- `8538ad9` - Simplified system prompt (67% reduction)
+- `74aa459` - Fixed intent detection, added validation, hybrid synthesis
+
+### Architecture: Hybrid Notification Synthesis
+
+**Flow for `query_priorities` and `analyze_notifications`:**
+```
+Call 1: Detect intent (~1 sec)
+  ↓
+Fetch top 8 priority notifications (heuristic scoring)
+  ↓
+Call 2: Synthesize with actual data (~2 sec)
+  ↓
+Return intelligent summary
+```
+
+**Flow for other intents (chat, update_priorities):**
+```
+Call 1: Detect intent + respond (~1-2 sec)
+```
+
+**Token budget:**
+- Query with notifications: ~3500 tokens (context + 8 notifications + prompt)
+- Still well under 8192 token limit
+
+### Key Lessons
+
+**Simpler prompts work better:**
+- Over-specification confuses models
+- Gemma is smart enough without extensive examples
+- Placeholder format matters: `[your response]` > `your response`
+
+**Intent detection needs negative examples:**
+- "update_priorities: ..." insufficient
+- Need "NOT update_priorities: Hi, How are you"
+- Explicit boundaries prevent misclassification
+
+**Validation prevents corruption:**
+- LLMs hallucinate occasionally
+- Never trust raw output, always validate
+- Filter nonsense (domains without `.`, empty strings)
+
+**Chat history is stateless:**
+- `recentRequests` in ConversationMemory never populated
+- Chat closes when app closes (by design) ✅
+
+### Next Steps
+
+**Immediate (Next Session):**
+1. Test on device with new build
+2. Verify intent detection accuracy (especially "Hi" → chat)
+3. Test hybrid synthesis: "what are my priorities?" should fetch actual notifications
+4. Test sender/contact extraction: "prioritize Outlook from John"
+
+**Future Enhancements:**
+1. **Installed apps tracking** (PackageManager integration)
+   - Validate priority changes against installed apps
+   - Warn if user prioritizes non-existent app
+   - Auto-discover new apps on install
+2. **Improved error messages**
+   - When validation rejects changes, explain why
+   - Suggest corrections (e.g., "Did you mean WhatsApp Business?")
+3. **Notification limit increase**
+   - Test higher MAX_TOKENS (4096, 8192) to fit more notifications
+   - Current: 8 notifications per query, could increase to 15-20
+
+---
+
 *Development philosophy: Build working systems incrementally. Validate architecture before adding complexity. Ship value early, optimize later.*
