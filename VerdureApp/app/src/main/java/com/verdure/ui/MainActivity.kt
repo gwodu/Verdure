@@ -105,8 +105,8 @@ class MainActivity : AppCompatActivity() {
                 // Create VerdureAI orchestrator with context
                 verdureAI = VerdureAI(llmEngine, contextManager)
 
-                // Register tools
-                verdureAI.registerTool(NotificationTool(llmEngine))
+                // Register tools (NotificationTool needs contextManager for heuristic filtering)
+                verdureAI.registerTool(NotificationTool(llmEngine, contextManager))
 
                 println("✅ Verdure AI initialized successfully")
                 println("   Tools registered: ${verdureAI.getAvailableTools().size}")

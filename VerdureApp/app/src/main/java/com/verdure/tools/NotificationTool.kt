@@ -2,17 +2,23 @@ package com.verdure.tools
 
 import com.verdure.core.LLMEngine
 import com.verdure.data.NotificationData
+import com.verdure.data.NotificationFilter
+import com.verdure.data.UserContextManager
 import com.verdure.services.VerdureNotificationListener
 
 /**
  * Tool for analyzing and prioritizing notifications
  *
- * Reads notifications from VerdureNotificationListener (Service)
- * Uses LLM to categorize by importance/urgency
- * Returns human-readable summary
+ * Architecture:
+ * 1. Heuristic filter (NotificationFilter) marks notifications as PRIORITY using user context rules
+ * 2. LLM analyzes ONLY priority-flagged notifications (10-15 max)
+ * 3. Returns intelligent summary based on user's goals/priorities
+ *
+ * This validates the hybrid system: heuristic does heavy lifting, LLM provides synthesis
  */
 class NotificationTool(
-    private val llmEngine: LLMEngine
+    private val llmEngine: LLMEngine,
+    private val contextManager: UserContextManager
 ) : Tool {
 
     override val name: String = "notification_filter"
@@ -23,10 +29,11 @@ class NotificationTool(
 
         // If action is "get_all", just return formatted notification list (no LLM)
         if (action == "get_all") {
-            // Limit to 3 to avoid exceeding MediaPipe's token limit (512 tokens total)
-            val notifications = getRecentNotifications(limit = 3)
+            // Get priority-filtered notifications (heuristic does the heavy lifting)
+            // Limit to 15 priority notifications (fits within token budget: ~1600 tokens total)
+            val notifications = getPriorityNotifications(limit = 15)
             if (notifications.isEmpty()) {
-                return "No notifications available."
+                return "No priority notifications right now."
             }
             return formatNotificationsForContext(notifications)
         }
@@ -34,11 +41,11 @@ class NotificationTool(
         // Otherwise, use LLM to analyze (original behavior)
         val userQuery = params["query"] as? String ?: "What's important?"
 
-        // Read notifications from the Service's StateFlow
-        val notifications = getRecentNotifications()
+        // Get priority-filtered notifications (heuristic pre-filtering)
+        val notifications = getPriorityNotifications()
 
         if (notifications.isEmpty()) {
-            return "You have no notifications right now."
+            return "You have no priority notifications right now."
         }
 
         // Format notifications for LLM analysis
@@ -88,10 +95,27 @@ Provide a brief, clear summary.
     }
 
     /**
-     * Get recent notifications from VerdureNotificationListener
-     * This connects the Tool (processor) to the Service (collector)
+     * Get priority notifications using heuristic filter
+     *
+     * Flow:
+     * 1. Get all notifications from VerdureNotificationListener (Service)
+     * 2. Load user context to get priority rules
+     * 3. Use NotificationFilter to classify (heuristic matching)
+     * 4. Return only PRIORITY-flagged notifications (up to limit)
+     *
+     * This is the key to the hybrid architecture: heuristic filters, LLM synthesizes
      */
-    private fun getRecentNotifications(limit: Int = 10): List<NotificationData> {
-        return VerdureNotificationListener.notifications.value.take(limit)
+    private fun getPriorityNotifications(limit: Int = 15): List<NotificationData> {
+        val allNotifications = VerdureNotificationListener.notifications.value
+
+        // Load user context to get priority rules (keywords, apps, domains, senders)
+        val context = contextManager.loadContext()
+        val filter = NotificationFilter(context)
+
+        // Filter using heuristic (fast, no LLM needed)
+        val priorityNotifications = filter.filterPriority(allNotifications)
+
+        // Return top N priority notifications (not all notifications)
+        return priorityNotifications.take(limit)
     }
 }
