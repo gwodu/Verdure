@@ -30,8 +30,8 @@ class NotificationTool(
         // If action is "get_all", just return formatted notification list (no LLM)
         if (action == "get_all") {
             // Get priority-filtered notifications (heuristic does the heavy lifting)
-            // Limit to 15 priority notifications (fits within token budget: ~1600 tokens total)
-            val notifications = getPriorityNotifications(limit = 15)
+            // Limit to 8 priority notifications (safe token budget: ~1200 tokens total)
+            val notifications = getPriorityNotifications(limit = 8)
             if (notifications.isEmpty()) {
                 return "No priority notifications right now."
             }
@@ -105,7 +105,7 @@ Provide a brief, clear summary.
      *
      * This is the key to the hybrid architecture: heuristic filters, LLM synthesizes
      */
-    private fun getPriorityNotifications(limit: Int = 15): List<NotificationData> {
+    private fun getPriorityNotifications(limit: Int = 8): List<NotificationData> {
         val allNotifications = VerdureNotificationListener.notifications.value
 
         // Load user context to get priority rules (keywords, apps, domains, senders)
