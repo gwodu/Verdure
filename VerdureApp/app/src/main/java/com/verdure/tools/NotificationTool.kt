@@ -105,7 +105,7 @@ Provide a brief, clear summary.
      *
      * This is the key to the hybrid architecture: heuristic filters, LLM synthesizes
      */
-    private fun getPriorityNotifications(limit: Int = 8): List<NotificationData> {
+    private suspend fun getPriorityNotifications(limit: Int = 8): List<NotificationData> {
         val allNotifications = VerdureNotificationListener.notifications.value
 
         // Load user context to get priority rules (keywords, apps, domains, senders)
