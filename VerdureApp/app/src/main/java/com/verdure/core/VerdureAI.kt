@@ -100,82 +100,34 @@ class VerdureAI(
     /**
      * Build structured output prompt for single-pass intent detection
      *
-     * Instructs Gemma to output JSON with:
-     * - intent: update_priorities, analyze_notifications, or chat
-     * - changes: delta changes to apply (if update_priorities)
-     * - message: natural language response
+     * Simplified prompt design:
+     * - Minimal instructions (simpler = less confusion)
+     * - Emphasizes context-awareness
+     * - Uses brackets [placeholder] to avoid literal copying
+     * - No verbose examples that Gemma might copy
      */
     private fun buildStructuredOutputPrompt(userMessage: String, contextJson: String): String {
         return """
-You are V, an AI assistant for Verdure.
+You are V, a helpful context-aware personal assistant with access to your user's information and priorities.
 
-User context (current priorities and settings):
+Context:
 $contextJson
 
-User message: "$userMessage"
+User: "$userMessage"
 
-Analyze the user's intent and respond with ONLY valid JSON in this format:
-
+Respond with JSON:
 {
-  "intent": "<one of: update_priorities, analyze_notifications, chat>",
-  "changes": {
-    "add_keywords": ["keyword1", "keyword2"],
-    "add_high_priority_apps": ["App1"],
-    "add_senders": ["sender@example.com"],
-    "add_domains": [".edu"],
-    "remove_keywords": [],
-    "remove_high_priority_apps": []
-  },
-  "message": "Your natural language response to the user"
+  "intent": "update_priorities" | "analyze_notifications" | "chat",
+  "changes": { "add_keywords": [], "add_high_priority_apps": [], "add_senders": [], "add_domains": [], "remove_keywords": [], "remove_high_priority_apps": [], "remove_senders": [], "remove_domains": [] },
+  "message": "[your helpful response based on the context]"
 }
 
-Intent detection rules:
-- "update_priorities": User wants to change what's important (prioritize, focus on, ignore, boost, deprioritize)
-- "analyze_notifications": User asks about their notifications (what's urgent, what's important, show notifications)
-- "chat": Everything else (questions, conversation, asking about current priorities)
+Intents:
+- update_priorities: User wants to change priorities
+- analyze_notifications: User asks about notifications
+- chat: General conversation
 
-Important:
-- For "update_priorities": Include ALL changes in the "changes" object
-- For "chat" or "analyze_notifications": Set "changes" to null
-- ALWAYS include a helpful "message" field with your natural response
-- Output ONLY the JSON object, no extra text before or after
-
-Examples:
-
-User: "prioritize Discord and emails from james deck"
-{
-  "intent": "update_priorities",
-  "changes": {
-    "add_high_priority_apps": ["Discord"],
-    "add_senders": ["james deck", "james.deck@"]
-  },
-  "message": "Got it! I've prioritized Discord and emails from James Deck. Future notifications from these sources will be scored higher."
-}
-
-User: "what are my priorities today, I should focus more on work emails"
-{
-  "intent": "update_priorities",
-  "changes": {
-    "add_keywords": ["work"]
-  },
-  "message": "Your current priorities include ${contextJson.take(50)}... I've also added work emails to your priorities."
-}
-
-User: "what's urgent?"
-{
-  "intent": "analyze_notifications",
-  "changes": null,
-  "message": "Let me check your urgent notifications..."
-}
-
-User: "how are you?"
-{
-  "intent": "chat",
-  "changes": null,
-  "message": "I'm doing well, thanks for asking! How can I help you today?"
-}
-
-Now respond to the user's message with valid JSON:
+Output only JSON.
         """.trimIndent()
     }
 
