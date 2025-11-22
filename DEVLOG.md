@@ -995,4 +995,91 @@ Call 1: Detect intent + respond (~1-2 sec)
 
 ---
 
+## Session 12 - November 22, 2025
+
+### What Was Done
+- **Redesigned UI with Verdure brand identity**
+  - Created `colors.xml` with brand color palette (dark blue-gray `#4A5368`, green `#5EDE9C`)
+  - Replaced app icon with Verdure "V" logo
+  - Removed notification and calendar list display from UI (still tracked in backend)
+  - Minimalist chat-only interface with rounded message bubbles
+  - Changed theme to NoActionBar for full-screen design
+
+- **Fixed build failures**
+  - Upgraded Gradle 8.2 → 8.11.1 (Java 21+ support)
+  - Upgraded Android Gradle Plugin 8.2.0 → 8.5.2
+  - Fixed XML syntax error in `activity_main.xml` (special characters in text)
+
+### Why
+
+**Problem 1: Cluttered UI**
+- Original UI showed notification list, calendar events, system context - too much visual noise
+- User requested sleek, minimalist design focused on conversation with V
+- **Solution:** Chat-only UI, notifications/calendar processed silently in background
+
+**Problem 2: No brand identity**
+- Generic Android colors and default app icon
+- User provided Verdure color scheme (dark blue-gray + green) and logo
+- **Solution:** Full visual rebrand with custom colors, icon, and styled message bubbles
+
+**Problem 3: Build failures on GitHub Actions**
+- Gradle 8.2.0 doesn't support Java 21 (MediaPipe requirement)
+- Error: `Unsupported class file major version 68`
+- **Solution:** Upgrade to Gradle 8.11.1 + AGP 8.5.2
+
+**Problem 4: XML parsing error**
+- Special characters (• bullet points) in welcome message broke XML compilation
+- Error: `ParseError at [row,col]:[74,152]`
+- **Solution:** Replace • with -, escape apostrophes with `&apos;`
+
+### Tradeoffs
+
+**UI Simplification:**
+- **Gained:** Clean, focused interface aligned with "silent partner" philosophy
+- **Lost:** No visual feedback on notifications/calendar (acceptable - V provides on request)
+
+**Gradle Upgrade:**
+- **Gained:** Java 21 support, future compatibility, build success
+- **Lost:** None (Gradle 8.11.1 is stable and widely supported)
+
+**Chat-Only Interface:**
+- **Gained:** Minimalist UX, forces conversational interaction, less distraction
+- **Lost:** Quick visual scan of notifications (acceptable - ask V instead)
+
+### Current Status
+
+✅ **Complete:**
+- Verdure-branded minimalist UI
+- Build system upgraded and working
+- APK successfully built and available for download
+
+🎨 **Visual Design:**
+- Dark blue-gray background (`#4A5368`)
+- Bright green accent (`#5EDE9C`)
+- User messages: right-aligned gray bubbles
+- V messages: full-width darker bubbles
+- Clean header with "VERDURE" branding
+
+### Next Steps
+
+**Immediate:**
+1. Test new UI on Pixel 8A
+2. Verify V's responses render correctly in new message bubbles
+3. Confirm permissions flow works with new layout
+
+**Future Enhancements:**
+1. **Conversation history persistence** - Save chat history across app restarts
+2. **Typing indicators** - Better visual feedback during LLM processing
+3. **Message timestamps** - Show when each message was sent
+4. **Dark mode toggle** - Allow user to switch to lighter theme (though current is already dark)
+5. **Notification badge** - Subtle indicator when V has urgent info to share
+
+**Commits:**
+- `a70b807` - Redesign UI with Verdure brand colors and minimalist chat interface
+- `fbdc2b2` - Upgrade Gradle to 8.11.1 and Android Gradle Plugin to 8.7.3
+- `5158bba` - Fix AGP version compatibility - use 8.5.2 with Gradle 8.11
+- `8bbdd28` - Fix XML syntax error in activity_main.xml
+
+---
+
 *Development philosophy: Build working systems incrementally. Validate architecture before adding complexity. Ship value early, optimize later.*
