@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wget:*)",
+      "Bash(unzip:*)",
+      "Bash(gradle-8.2/bin/gradle wrapper:*)",
+      "Bash(./gradlew:*)",
+      "Bash(cat:*)",
+      "Bash(env)",
+      "Bash(ln:*)",
+      "WebSearch",
+      "Bash(pkill:*)",
+      "Bash(tee:*)",
+      "Bash(git add:*)",
+      "Bash(python3:*)",
+      "Bash(test-trigger.txt)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "WebFetch(domain:developers.google.com)",
+      "Bash(gh run:*)",
+      "Bash(git reset:*)",
+      "Bash(adb devices:*)",
+      "Bash(adb kill-server:*)",
+      "Bash(adb start-server:*)",
+      "WebFetch(domain:llm.mlc.ai)",
+      "Bash(git rm:*)",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(curl:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git remote get-url:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
