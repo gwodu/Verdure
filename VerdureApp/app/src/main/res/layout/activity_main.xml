@@ -71,7 +71,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Hi! I'm V, your personal AI assistant.\n\nI can help you manage your notifications and priorities. Try asking me:\n\n• \"What's urgent today?\"\n• \"Prioritize Discord messages\"\n• \"What are my priorities?\""
+                android:text="Hi! I&apos;m V, your personal AI assistant.\n\nI can help you manage your notifications and priorities. Try asking me:\n\n- What&apos;s urgent today?\n- Prioritize Discord messages\n- What are my priorities?"
                 android:textSize="14sp"
                 android:textColor="@color/text_primary"
                 android:padding="16dp"
