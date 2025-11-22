@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Verdure Brand Colors -->
+    <color name="verdure_dark_blue">#4A5368</color>
+    <color name="verdure_green">#5EDE9C</color>
+
+    <!-- UI Colors -->
+    <color name="background_primary">#4A5368</color>
+    <color name="background_secondary">#3E4556</color>
+    <color name="background_chat">#3A3F4E</color>
+
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B8BCC8</color>
+    <color name="text_tertiary">#8A8F9D</color>
+
+    <color name="accent_primary">#5EDE9C</color>
+    <color name="accent_secondary">#4BC985</color>
+
+    <!-- Message Bubbles -->
+    <color name="message_user">#3E4556</color>
+    <color name="message_ai">#2C3140</color>
+    <color name="message_system">#3A3F4E</color>
+
+    <!-- Status Colors -->
+    <color name="status_success">#5EDE9C</color>
+    <color name="status_warning">#FFB74D</color>
+    <color name="status_error">#EF5350</color>
+
+    <!-- Transparent -->
+    <color name="transparent">#00000000</color>
+</resources>

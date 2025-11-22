@@ -3,43 +3,63 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:background="@color/background_primary">
 
-    <!-- Status and Permission Section -->
-    <TextView
-        android:id="@+id/statusText"
+    <!-- Header with Status -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Checking permissions..."
-        android:textSize="16sp"
-        android:padding="8dp"/>
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="12dp"
+        android:background="@color/background_secondary">
 
-    <Button
-        android:id="@+id/requestPermissionButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Enable Permissions"
-        android:layout_marginTop="8dp"/>
+        <!-- App Title -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="VERDURE"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/accent_primary"
+            android:letterSpacing="0.1"
+            android:layout_marginBottom="8dp"/>
 
-    <!-- Chat with V Section -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="💬 CHAT WITH V"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:padding="8dp"
-        android:layout_marginTop="16dp"
-        android:background="#E3F2FD"/>
+        <!-- Status Text -->
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Checking permissions..."
+            android:textSize="13sp"
+            android:textColor="@color/text_secondary"/>
 
-    <!-- Chat History -->
+        <!-- Permission Button -->
+        <Button
+            android:id="@+id/requestPermissionButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Enable Permissions"
+            android:textColor="@color/background_primary"
+            android:backgroundTint="@color/accent_primary"
+            android:layout_marginTop="8dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:textSize="13sp"
+            android:textStyle="bold"/>
+
+    </LinearLayout>
+
+    <!-- Chat Section -->
     <ScrollView
         android:id="@+id/chatScrollView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="0.4"
-        android:background="#F5F5F5"
-        android:padding="8dp">
+        android:layout_weight="1"
+        android:padding="16dp"
+        android:fillViewport="true">
 
         <LinearLayout
             android:id="@+id/chatHistoryContainer"
@@ -47,24 +67,28 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!-- Welcome Message -->
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="V: Hi! I'm V, your personal AI assistant. How can I help you today?"
+                android:text="Hi! I'm V, your personal AI assistant.\n\nI can help you manage your notifications and priorities. Try asking me:\n\n• \"What's urgent today?\"\n• \"Prioritize Discord messages\"\n• \"What are my priorities?\""
                 android:textSize="14sp"
-                android:padding="8dp"
-                android:background="#E8F5E9"
-                android:layout_marginBottom="4dp"/>
+                android:textColor="@color/text_primary"
+                android:padding="16dp"
+                android:background="@drawable/message_bubble_ai"
+                android:layout_marginBottom="12dp"/>
 
         </LinearLayout>
     </ScrollView>
 
-    <!-- Chat Input -->
+    <!-- Input Section -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="8dp">
+        android:padding="16dp"
+        android:background="@color/background_secondary"
+        android:elevation="4dp">
 
         <EditText
             android:id="@+id/chatInput"
@@ -72,90 +96,27 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:hint="Type your message..."
+            android:textColorHint="@color/text_tertiary"
+            android:textColor="@color/text_primary"
             android:inputType="textCapSentences|textMultiLine"
-            android:maxLines="3"
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"/>
+            android:maxLines="4"
+            android:padding="14dp"
+            android:background="@drawable/input_background"
+            android:textSize="14sp"/>
 
         <Button
             android:id="@+id/sendButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Send"
-            android:layout_marginStart="8dp"/>
+            android:textColor="@color/background_primary"
+            android:backgroundTint="@color/accent_primary"
+            android:layout_marginStart="12dp"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:textStyle="bold"
+            android:textSize="14sp"/>
 
     </LinearLayout>
-
-    <!-- System Context -->
-    <TextView
-        android:id="@+id/systemContextText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Loading system context..."
-        android:textSize="14sp"
-        android:textStyle="italic"
-        android:padding="8dp"
-        android:layout_marginTop="8dp"/>
-
-    <!-- Day Planner ScrollView -->
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="8dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <!-- Calendar Events Section -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="📅 UPCOMING EVENTS"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:padding="8dp"
-                android:background="#E8F5E9"/>
-
-            <TextView
-                android:id="@+id/calendarEventsText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Loading calendar events..."
-                android:textSize="14sp"
-                android:fontFamily="monospace"
-                android:padding="8dp"/>
-
-            <!-- Notifications Section -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="📱 NOTIFICATIONS"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:padding="8dp"
-                android:layout_marginTop="16dp"
-                android:background="#FFF3E0"/>
-
-            <LinearLayout
-                android:id="@+id/notificationListContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="8dp">
-
-                <TextView
-                    android:id="@+id/notificationListText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Waiting for notifications..."
-                    android:textSize="14sp"
-                    android:fontFamily="monospace"/>
-            </LinearLayout>
-
-        </LinearLayout>
-    </ScrollView>
 
 </LinearLayout>

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
+import android.view.Gravity
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -19,31 +20,20 @@ import com.verdure.R
 import com.verdure.core.MediaPipeLLMEngine
 import com.verdure.core.VerdureAI
 import com.verdure.data.UserContextManager
-import com.verdure.services.CalendarReader
-import com.verdure.services.SystemStateMonitor
 import com.verdure.services.VerdureNotificationListener
 import com.verdure.tools.NotificationTool
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
     private lateinit var requestPermissionButton: Button
-    private lateinit var systemContextText: TextView
-    private lateinit var calendarEventsText: TextView
-    private lateinit var notificationListText: TextView
-    private lateinit var notificationListContainer: LinearLayout
 
     // Chat components
     private lateinit var chatInput: EditText
     private lateinit var sendButton: Button
     private lateinit var chatHistoryContainer: LinearLayout
     private lateinit var chatScrollView: ScrollView
-
-    private lateinit var calendarReader: CalendarReader
-    private lateinit var systemStateMonitor: SystemStateMonitor
 
     // AI components
     private lateinit var llmEngine: MediaPipeLLMEngine
@@ -59,19 +49,12 @@ class MainActivity : AppCompatActivity() {
 
         statusText = findViewById(R.id.statusText)
         requestPermissionButton = findViewById(R.id.requestPermissionButton)
-        systemContextText = findViewById(R.id.systemContextText)
-        calendarEventsText = findViewById(R.id.calendarEventsText)
-        notificationListText = findViewById(R.id.notificationListText)
-        notificationListContainer = findViewById(R.id.notificationListContainer)
 
         // Chat components
         chatInput = findViewById(R.id.chatInput)
         sendButton = findViewById(R.id.sendButton)
         chatHistoryContainer = findViewById(R.id.chatHistoryContainer)
         chatScrollView = findViewById(R.id.chatScrollView)
-
-        calendarReader = CalendarReader(applicationContext)
-        systemStateMonitor = SystemStateMonitor(applicationContext)
 
         // Initialize AI components
         initializeAI()
@@ -86,7 +69,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         checkPermissionsAndSetup()
-        updateSystemContext()
     }
 
     /**
@@ -177,44 +159,52 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Add a message to the chat history
+     * Add a message to the chat history with Verdure styling
      */
     private fun addMessageToChat(sender: String, message: String): TextView {
         val messageView = TextView(this).apply {
-            text = "$sender: $message"
+            text = when (sender) {
+                "You" -> message
+                "V" -> message
+                else -> message
+            }
             textSize = 14f
-            setPadding(16, 16, 16, 16)
+            setPadding(32, 24, 32, 24)
+            setTextColor(resources.getColor(R.color.text_primary, null))
 
             // Style based on sender
             when (sender) {
                 "You" -> {
-                    setBackgroundColor(android.graphics.Color.parseColor("#E3F2FD"))
+                    setBackgroundResource(R.drawable.message_bubble_user)
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
                     ).apply {
-                        setMargins(0, 0, 0, 8)
+                        setMargins(0, 0, 0, 16)
+                        gravity = Gravity.END
                     }
                 }
                 "V" -> {
-                    setBackgroundColor(android.graphics.Color.parseColor("#E8F5E9"))
+                    setBackgroundResource(R.drawable.message_bubble_ai)
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
                     ).apply {
-                        setMargins(0, 0, 0, 8)
+                        setMargins(0, 0, 0, 16)
                     }
                     if (message == "Thinking...") {
                         tag = "thinking"
+                        setTextColor(resources.getColor(R.color.text_secondary, null))
                     }
                 }
                 else -> {
-                    setBackgroundColor(android.graphics.Color.parseColor("#FFEBEE"))
+                    setBackgroundResource(R.drawable.message_bubble_system)
+                    setTextColor(resources.getColor(R.color.status_error, null))
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
                     ).apply {
-                        setMargins(0, 0, 0, 8)
+                        setMargins(0, 0, 0, 16)
                     }
                 }
             }
@@ -236,12 +226,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Re-check permissions and refresh data when returning to the app
+        // Re-check permissions when returning to the app
         checkPermissionsAndSetup()
-        updateSystemContext()
-        if (hasCalendarPermission()) {
-            loadCalendarEvents()
-        }
     }
 
     /**
@@ -294,15 +280,12 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == CALENDAR_PERMISSION_REQUEST) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                loadCalendarEvents()
-            }
             checkPermissionsAndSetup()
         }
     }
 
     /**
-     * Check all permissions and set up observers if granted.
+     * Check all permissions and update status text.
      */
     private fun checkPermissionsAndSetup() {
         val hasCalendar = hasCalendarPermission()
@@ -310,208 +293,22 @@ class MainActivity : AppCompatActivity() {
 
         when {
             hasCalendar && hasNotifications -> {
-                statusText.text = "✅ All permissions granted"
+                statusText.text = "✅ All permissions granted • Ready"
                 requestPermissionButton.isEnabled = false
                 requestPermissionButton.text = "Permissions Granted"
-                observeNotifications()
-                loadCalendarEvents()
             }
             hasCalendar && !hasNotifications -> {
                 statusText.text = "⚠️ Notification access required"
                 requestPermissionButton.isEnabled = true
-                loadCalendarEvents()
             }
             !hasCalendar && hasNotifications -> {
                 statusText.text = "⚠️ Calendar access required"
                 requestPermissionButton.isEnabled = true
-                observeNotifications()
             }
             else -> {
-                statusText.text = "⚠️ Permissions required"
+                statusText.text = "⚠️ Permissions required to get started"
                 requestPermissionButton.isEnabled = true
             }
         }
-    }
-
-    /**
-     * Update system context display (time of day, DND status).
-     */
-    private fun updateSystemContext() {
-        val timeDesc = systemStateMonitor.getTimeDescription()
-        val isWorkHours = systemStateMonitor.isWorkHours()
-        val workHoursText = if (isWorkHours) " | Work Hours" else ""
-        systemContextText.text = "🕐 $timeDesc$workHoursText"
-    }
-
-    /**
-     * Load and display calendar events.
-     */
-    private fun loadCalendarEvents() {
-        lifecycleScope.launch {
-            val events = withContext(Dispatchers.IO) {
-                calendarReader.getUpcomingEvents()
-            }
-
-            if (events.isEmpty()) {
-                calendarEventsText.text = "No upcoming events found.\n\nAdd events to your calendar to see them here."
-            } else {
-                val displayText = events.joinToString("\n\n---\n\n") { event ->
-                    buildString {
-                        append("${event.getUrgencyLabel()}\n")
-                        append("📅 ${event.title}\n")
-                        append("⏰ ${event.getTimeRange()}\n")
-                        if (!event.location.isNullOrBlank()) {
-                            append("📍 ${event.location}\n")
-                        }
-                        if (!event.description.isNullOrBlank()) {
-                            append("📝 ${event.description}\n")
-                        }
-                        append("📆 ${event.calendarName}")
-                    }
-                }
-                calendarEventsText.text = displayText
-            }
-        }
-    }
-
-    /**
-     * Observe the notifications StateFlow and update UI with prioritization.
-     */
-    private fun observeNotifications() {
-        lifecycleScope.launch {
-            VerdureNotificationListener.notifications.collect { notifications ->
-                runOnUiThread {
-                    // Clear existing notification views (but keep the placeholder text view)
-                    notificationListContainer.removeAllViews()
-
-                    if (notifications.isEmpty()) {
-                        notificationListText.text = "Waiting for notifications...\n\nOnce you receive notifications on your phone, they will appear here."
-                        notificationListContainer.addView(notificationListText)
-                    } else {
-                        // Apply prioritization
-                        val prioritized = prioritizeNotifications(notifications)
-
-                        // Create clickable card for each notification
-                        prioritized.forEach { (notif, score) ->
-                            val notifCard = createNotificationCard(notif, score)
-                            notificationListContainer.addView(notifCard)
-
-                            // Add divider
-                            val divider = android.view.View(this@MainActivity)
-                            divider.layoutParams = android.widget.LinearLayout.LayoutParams(
-                                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                                2
-                            ).apply {
-                                setMargins(0, 16, 0, 16)
-                            }
-                            divider.setBackgroundColor(0xFFCCCCCC.toInt())
-                            notificationListContainer.addView(divider)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Create a clickable notification card.
-     */
-    private fun createNotificationCard(
-        notif: com.verdure.data.NotificationData,
-        score: Double
-    ): TextView {
-        val card = TextView(this)
-        card.layoutParams = android.widget.LinearLayout.LayoutParams(
-            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-        card.setPadding(16, 16, 16, 16)
-        card.textSize = 14f
-        card.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.NORMAL)
-
-        // Priority indicator and color
-        val (indicator, bgColor) = when {
-            score >= 1.5 -> "🔴 HIGH" to 0xFFFFEBEE.toInt()
-            score >= 1.0 -> "🟡 MEDIUM" to 0xFFFFF3E0.toInt()
-            else -> "🟢 LOW" to 0xFFE8F5E9.toInt()
-        }
-        card.setBackgroundColor(bgColor)
-
-        // Build notification text
-        val displayText = buildString {
-            append("$indicator Priority (score: %.2f)\n".format(score))
-            append("📱 ${notif.appName}\n")
-            append("⏰ ${notif.getFormattedTime()}\n")
-            if (!notif.title.isNullOrBlank()) {
-                append("📌 ${notif.title}\n")
-            }
-            if (!notif.text.isNullOrBlank()) {
-                append("💬 ${notif.text}\n")
-            }
-            append("⚡ Base Priority: ${notif.priority}\n")
-            if (notif.contentIntent != null) {
-                append("\n👆 Tap to open")
-            }
-        }
-        card.text = displayText
-
-        // Make clickable if contentIntent exists
-        if (notif.contentIntent != null) {
-            card.isClickable = true
-            card.isFocusable = true
-            card.setOnClickListener {
-                try {
-                    // Send the PendingIntent to launch the app
-                    // Note: Use startIntentSender for better compatibility
-                    this@MainActivity.startIntentSender(
-                        notif.contentIntent.intentSender,
-                        null,
-                        0,
-                        0,
-                        0
-                    )
-                } catch (e: Exception) {
-                    android.util.Log.e("MainActivity", "Failed to launch notification", e)
-                    android.widget.Toast.makeText(
-                        this@MainActivity,
-                        "Failed to open: ${e.message}",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        }
-
-        return card
-    }
-
-    /**
-     * Prioritize notifications based on Android priority and recency.
-     * Returns list of (notification, priority score) pairs, sorted by priority.
-     */
-    private fun prioritizeNotifications(notifications: List<com.verdure.data.NotificationData>):
-            List<Pair<com.verdure.data.NotificationData, Double>> {
-
-        // Calculate priority score for each notification
-        val scored = notifications.map { notif ->
-            var score = 1.0
-
-            // Base score from Android priority (-2 to 2, normalize to 0.5 to 1.5)
-            score += (notif.priority * 0.25)
-
-            // Recency boost (newer = higher priority)
-            val ageMinutes = (System.currentTimeMillis() - notif.timestamp) / 60000
-            val recencyBoost = when {
-                ageMinutes < 5 -> 0.5
-                ageMinutes < 15 -> 0.3
-                ageMinutes < 60 -> 0.1
-                else -> 0.0
-            }
-            score += recencyBoost
-
-            Pair(notif, score)
-        }
-
-        // Sort by priority score (highest first)
-        return scored.sortedByDescending { it.second }
     }
 }
