@@ -121,8 +121,7 @@ class VerdureNotificationListener : NotificationListenerService() {
             // Extract metadata for enhanced scoring
             val hasActions = notification.actions?.isNotEmpty() == true
             val hasImage = extras.containsKey(Notification.EXTRA_PICTURE) ||
-                          extras.containsKey(Notification.EXTRA_LARGE_ICON) ||
-                          extras.containsKey(Notification.EXTRA_BIG_PICTURE)
+                          extras.containsKey(Notification.EXTRA_LARGE_ICON)
             val isOngoing = (notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
 
             return NotificationData(
