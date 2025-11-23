@@ -159,7 +159,7 @@ Now classify the user's message:
 
     /**
      * Handle notification_query intent
-     * Fetches notifications (either by search or priority) and synthesizes summary
+     * Fetches top priority notifications and synthesizes summary
      */
     private suspend fun handleNotificationQuery(userMessage: String): String {
         val notificationTool = tools["notification_filter"]
@@ -168,27 +168,10 @@ Now classify the user's message:
             return "I don't have access to your notifications right now."
         }
 
-        // Extract keywords from user message for potential search
-        val keywords = extractKeywords(userMessage)
-
-        // If user seems to be searching for specific content, use search
-        // Otherwise, just get priority notifications
-        val notificationsResult = if (keywords.isNotEmpty() &&
-            (userMessage.contains("find", ignoreCase = true) ||
-             userMessage.contains("show", ignoreCase = true) ||
-             userMessage.contains("about", ignoreCase = true) ||
-             userMessage.contains("from", ignoreCase = true))) {
-
-            Log.d(TAG, "Searching notifications with keywords: $keywords")
-            notificationTool.execute(
-                mapOf("action" to "search", "keywords" to keywords, "limit" to 10)
-            )
-        } else {
-            // Default: get top priority notifications from heuristic scoring
-            notificationTool.execute(
-                mapOf("action" to "get_priority", "limit" to 8)
-            )
-        }
+        // Get top 8 priority notifications from heuristic scoring
+        val notificationsResult = notificationTool.execute(
+            mapOf("action" to "get_priority", "limit" to 8)
+        )
 
         val context = contextManager.loadContext()
 
@@ -410,31 +393,6 @@ User: "$userMessage"
 
 Respond naturally and helpfully:
         """.trimIndent()
-    }
-
-    // ----- Helper Methods -----
-
-    /**
-     * Extract keywords from user message for notification search
-     * Simple stopword filtering - good enough for demo
-     */
-    private fun extractKeywords(message: String): List<String> {
-        // Common stopwords to filter out
-        val stopwords = setOf(
-            "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-            "have", "has", "had", "do", "does", "did", "will", "would", "should",
-            "could", "can", "may", "might", "must", "i", "me", "my", "you", "your",
-            "what", "what's", "whats", "show", "find", "get", "tell", "give",
-            "about", "from", "to", "for", "with", "of", "in", "on", "at", "by",
-            "notifications", "notification", "messages", "message"
-        )
-
-        // Split by whitespace and punctuation, filter stopwords, take meaningful words
-        return message.lowercase()
-            .replace(Regex("[^a-z0-9\\s@.]"), " ")
-            .split(Regex("\\s+"))
-            .filter { it.isNotBlank() && it.length > 2 && it !in stopwords }
-            .distinct()
     }
 
     // ----- Public API -----
