@@ -14,7 +14,12 @@ data class NotificationData(
     val timestamp: Long,
     val category: String?,
     val priority: Int,
-    val contentIntent: PendingIntent?  // Intent to open the notification's app
+    val contentIntent: PendingIntent?,  // Intent to open the notification's app
+
+    // Metadata for enhanced scoring
+    val hasActions: Boolean = false,      // Has action buttons (reply, archive, etc.)
+    val hasImage: Boolean = false,        // Has inline image/rich media
+    val isOngoing: Boolean = false        // Ongoing notification (music, timer, etc.)
 ) {
     /**
      * Get a human-readable timestamp string.

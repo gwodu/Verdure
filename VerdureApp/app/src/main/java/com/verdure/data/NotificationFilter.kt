@@ -1,103 +1,328 @@
 package com.verdure.data
 
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import java.util.Calendar
 
 /**
- * Scoring-based notification classifier
+ * Enhanced multi-factor notification scoring system.
  *
- * Architecture: Multi-factor scoring system
- * 1. App-based base score (email/finance = high, social = neutral/low)
- * 2. User-specified keywords from context (learned via Mode A)
- * 3. General high-priority keywords (urgent, due, tomorrow, etc.)
- * 4. Temporal keywords (due, deadline, today, tomorrow, soon)
- * 5. Personal reference detection ("you", sender in contacts)
- * 6. Calendar event temporal scoring (next 30 min = very urgent, 24h = urgent, 7d = normal)
+ * Architecture: Scaling laws approach - more signals = better accuracy
+ * Uses 15+ factors across multiple dimensions:
+ * - App-based scoring (granular tiers)
+ * - User-learned priorities (context)
+ * - Content analysis (semantic + structural)
+ * - Temporal factors (freshness, time-of-day)
+ * - Sender/relationship signals
+ * - Metadata signals (actions, images, priority flags)
+ * - Calendar proximity
  *
- * Returns notifications sorted by score (highest first)
+ * Score range: -5 to +24
+ * Threshold: >= 2 considered priority
  */
 class NotificationFilter(private val userContext: UserContext) {
 
     companion object {
         private const val TAG = "NotificationFilter"
 
-        // Scoring weights
-        private const val SCORE_HIGH_PRIORITY_APP = 2
-        private const val SCORE_FINANCIAL_APP = 2
-        private const val SCORE_NEUTRAL_APP = 0
-        private const val SCORE_LOW_PRIORITY_APP = -1
-
-        private const val SCORE_USER_KEYWORD = 2
-        private const val SCORE_DOMAIN = 2
-        private const val SCORE_SENDER = 2
-        private const val SCORE_CONTACT = 2
-
-        // General high-priority keywords
-        private const val SCORE_URGENT_KEYWORD = 3
-        private const val SCORE_TEMPORAL_KEYWORD = 2
-        private const val SCORE_PERSONAL_REFERENCE = 1
-
-        // Calendar temporal scoring
-        private const val SCORE_CALENDAR_NEXT_30MIN = 5
-        private const val SCORE_CALENDAR_NEXT_24H = 3
-        private const val SCORE_CALENDAR_NEXT_7D = 1
-
-        // General high-priority keywords (hardcoded)
-        private val URGENT_KEYWORDS = listOf("urgent", "critical", "asap", "emergency")
-        private val TEMPORAL_KEYWORDS = listOf("due", "deadline", "today", "tonight", "tomorrow", "expiring", "expires")
-        private val PERSONAL_KEYWORDS = listOf(" you ", " your ", "you're", "you've")
-
         // Threshold for what counts as "priority"
         private const val PRIORITY_THRESHOLD = 2
+
+        // Score cap to prevent over-prioritization
+        private const val SCORE_CAP_MAX = 24
+        private const val SCORE_CAP_MIN = -5
     }
 
     /**
-     * Score a single notification
-     * Returns the numerical score (higher = more important)
-     * Score is capped at 24 to prevent over-prioritization
+     * Score a single notification using multi-factor analysis.
+     * Returns numerical score (higher = more important).
      */
     fun scoreNotification(notification: NotificationData): Int {
         var score = 0
-        val rules = userContext.priorityRules
 
-        // 1. App-based scoring
-        score += getAppScore(notification.appName, rules)
+        // A. App-based scoring (granular tiers)
+        score += scoreByApp(notification.appName, userContext.priorityRules)
 
-        // 2. User-specified keywords (from context)
-        score += getUserKeywordScore(notification, rules)
+        // B. User-learned priorities (from LLM updates)
+        score += scoreByUserRules(notification, userContext.priorityRules)
 
-        // 3. Domain matching (e.g., .edu, .gov)
-        score += getDomainScore(notification, rules)
+        // C. Content analysis (semantic + structural)
+        score += scoreByContent(notification.title, notification.text)
 
-        // 4. Sender matching (email addresses)
-        score += getSenderScore(notification, rules)
+        // D. Temporal factors
+        score += scoreByTime(notification.timestamp)
 
-        // 5. Contact matching (person names)
-        score += getContactScore(notification, rules)
+        // E. Sender/relationship signals
+        score += scoreBySender(notification.title, notification.text, userContext.priorityRules)
 
-        // 6. General high-priority keywords (urgent, critical, etc.)
-        score += getUrgentKeywordScore(notification)
+        // F. Metadata signals
+        score += scoreByMetadata(notification)
 
-        // 7. Temporal keywords (due, deadline, today, tomorrow)
-        score += getTemporalKeywordScore(notification)
+        // G. Calendar proximity (existing)
+        score += scoreByCalendarProximity(notification)
 
-        // 8. Personal reference ("you", "your")
-        score += getPersonalReferenceScore(notification)
+        // H. User behavior (future - when tracking added)
+        // score += scoreByUserBehavior(notification.appName, userStats)
 
-        // 9. Calendar event temporal scoring (if this is a calendar notification)
-        score += getCalendarTemporalScore(notification)
+        // Cap score to prevent extreme values
+        val cappedScore = score.coerceIn(SCORE_CAP_MIN, SCORE_CAP_MAX)
 
-        // Cap score at 24 (roughly 4x typical high-priority score)
-        // Prevents over-prioritization when many factors match
-        val cappedScore = score.coerceAtMost(24)
-
-        Log.d(TAG, "Score ${cappedScore}${if (score > 24) " (capped from $score)" else ""}: ${notification.appName} - ${notification.title}")
+        if (score != cappedScore) {
+            Log.d(TAG, "Score ${cappedScore} (capped from $score): ${notification.appName} - ${notification.title}")
+        } else {
+            Log.d(TAG, "Score ${cappedScore}: ${notification.appName} - ${notification.title}")
+        }
 
         return cappedScore
     }
 
+    // ----- Scoring Helper Methods -----
+
     /**
-     * Filter and sort notifications by score
-     * Returns only notifications above PRIORITY_THRESHOLD, sorted by score (highest first)
+     * A. App-based scoring with granular tiers
+     */
+    private fun scoreByApp(appName: String, rules: PriorityRules): Int {
+        val lowerAppName = appName.lowercase()
+
+        // User-specified high priority apps (highest precedence)
+        if (rules.highPriorityApps.any { lowerAppName.contains(it.lowercase()) }) {
+            return 4
+        }
+
+        // User-specified financial apps
+        if (rules.financialApps.any { lowerAppName.contains(it.lowercase()) }) {
+            return 3
+        }
+
+        // Communication Tier 1 (immediate: WhatsApp, Signal, Messages)
+        if (ScoringKeywords.communicationTier1.any { lowerAppName.contains(it.lowercase()) }) {
+            return 3
+        }
+
+        // Communication Tier 2 (important: Gmail, Slack, Discord)
+        if (ScoringKeywords.communicationTier2.any { lowerAppName.contains(it.lowercase()) }) {
+            return 2
+        }
+
+        // Communication Tier 3 (social: Instagram, Twitter)
+        if (ScoringKeywords.communicationTier3.any { lowerAppName.contains(it.lowercase()) }) {
+            return 1
+        }
+
+        // User-specified neutral apps
+        if (rules.neutralApps.any { lowerAppName.contains(it.lowercase()) }) {
+            return 0
+        }
+
+        // Low priority apps (games, news, shopping)
+        if (ScoringKeywords.lowPriorityApps.any { lowerAppName.contains(it.lowercase()) }) {
+            return -2
+        }
+
+        // Unknown apps default to neutral
+        return 0
+    }
+
+    /**
+     * B. User-learned priorities (keywords, domains, senders, contacts)
+     */
+    private fun scoreByUserRules(notification: NotificationData, rules: PriorityRules): Int {
+        var score = 0
+        val content = "${notification.title} ${notification.text}".lowercase()
+
+        // User-specified keywords (+2 each, capped at +6 to prevent keyword spam)
+        val keywordMatches = rules.keywords.count { keyword ->
+            content.contains(keyword.lowercase())
+        }
+        score += (keywordMatches * 2).coerceAtMost(6)
+
+        // Domain matching (.edu, .gov, etc.)
+        rules.domains.forEach { domain ->
+            if (content.contains(domain.lowercase())) {
+                score += 2
+            }
+        }
+
+        return score
+    }
+
+    /**
+     * C. Content analysis (semantic + structural signals)
+     */
+    private fun scoreByContent(title: String?, text: String?): Int {
+        var score = 0
+        val combined = "${title ?: ""} ${text ?: ""}".lowercase()
+
+        if (combined.isBlank()) return 0
+
+        // Urgency keywords (tiered)
+        if (combined.containsAny(ScoringKeywords.urgencyTier1Keywords)) {
+            score += 5
+        } else if (combined.containsAny(ScoringKeywords.urgencyTier2Keywords)) {
+            score += 3
+        } else if (combined.containsAny(ScoringKeywords.urgencyTier3Keywords)) {
+            score += 2
+        }
+
+        // Request/action keywords
+        if (combined.containsAny(ScoringKeywords.requestKeywords)) {
+            score += 3
+        }
+
+        // Meeting keywords
+        if (combined.containsAny(ScoringKeywords.meetingKeywords)) {
+            score += 3
+        }
+
+        // Temporal keywords
+        if (combined.containsAny(ScoringKeywords.temporalKeywords)) {
+            score += 2
+        }
+
+        // Financial keywords
+        if (combined.containsAny(ScoringKeywords.financialKeywords)) {
+            score += 2
+        }
+
+        // Structural signals
+        if (combined.contains('?')) {
+            score += 2  // Question asked
+        }
+
+        if (combined.count { it == '!' } >= 2) {
+            score += 1  // Multiple exclamations = excitement/urgency
+        }
+
+        // ALL CAPS detection (at least 4 uppercase letters in a row)
+        if (Regex("[A-Z]{4,}").containsMatchIn(title ?: "")) {
+            score += 2
+        }
+
+        // Currency symbols
+        if (combined.containsAny(setOf("$", "€", "£", "¥"))) {
+            score += 2
+        }
+
+        // Personal reference
+        if (combined.containsAny(ScoringKeywords.personalKeywords)) {
+            score += 1
+        }
+
+        return score
+    }
+
+    /**
+     * D. Temporal factors (freshness, time-of-day context)
+     */
+    private fun scoreByTime(timestamp: Long): Int {
+        var score = 0
+        val age = System.currentTimeMillis() - timestamp
+
+        // Freshness bonus
+        when {
+            age < 5 * 60 * 1000 -> score += 2    // < 5 minutes: very fresh
+            age < 30 * 60 * 1000 -> score += 1   // < 30 minutes: fresh
+            age > 24 * 60 * 60 * 1000 -> score -= 1  // > 24 hours: stale
+        }
+
+        // Time-of-day context (future enhancement - can be user-customizable)
+        // For now, keep it simple
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val isWorkHours = hour in 9..17
+
+        // Could boost work-related apps during work hours
+        // This would require app categorization, deferred for now
+
+        return score
+    }
+
+    /**
+     * E. Sender/relationship signals
+     */
+    private fun scoreBySender(title: String?, text: String?, rules: PriorityRules): Int {
+        var score = 0
+        val combined = "${title ?: ""} ${text ?: ""}".lowercase()
+
+        if (combined.isBlank()) return 0
+
+        // Exact sender match (email addresses)
+        rules.senders.forEach { sender ->
+            if (combined.contains(sender.lowercase())) {
+                score += 4
+                return@forEach  // Only count once per sender
+            }
+        }
+
+        // Contact name match
+        rules.contacts.forEach { contact ->
+            if (combined.contains(contact.lowercase())) {
+                score += 4
+                return@forEach  // Only count once per contact
+            }
+        }
+
+        return score
+    }
+
+    /**
+     * F. Metadata signals (Android notification properties)
+     */
+    private fun scoreByMetadata(notification: NotificationData): Int {
+        var score = 0
+
+        // Android priority flag
+        when (notification.priority) {
+            NotificationCompat.PRIORITY_HIGH, NotificationCompat.PRIORITY_MAX -> score += 3
+            NotificationCompat.PRIORITY_LOW, NotificationCompat.PRIORITY_MIN -> score -= 1
+            // PRIORITY_DEFAULT = 0, no change
+        }
+
+        // Has action buttons (reply, archive, etc.) = actionable
+        if (notification.hasActions) {
+            score += 1
+        }
+
+        // Has inline image/rich content = visually important
+        if (notification.hasImage) {
+            score += 1
+        }
+
+        // Ongoing notifications (music, timer) should not dominate priority queue
+        if (notification.isOngoing) {
+            score -= 3
+        }
+
+        return score
+    }
+
+    /**
+     * G. Calendar event temporal scoring
+     */
+    private fun scoreByCalendarProximity(notification: NotificationData): Int {
+        // Check if this is a calendar notification
+        val isCalendar = notification.appName.lowercase().contains("calendar") ||
+                notification.category == "event"
+
+        if (!isCalendar) return 0
+
+        // Use notification recency as proxy for event proximity
+        // Fresh calendar notification = event is soon
+        val now = System.currentTimeMillis()
+        val notificationAge = now - notification.timestamp
+
+        return when {
+            notificationAge < 30 * 60 * 1000 -> 5    // < 30 min: event very soon
+            notificationAge < 24 * 60 * 60 * 1000 -> 3  // < 24h: event today/tomorrow
+            notificationAge < 7 * 24 * 60 * 60 * 1000 -> 1  // < 7d: event this week
+            else -> 0
+        }
+    }
+
+    // ----- Public API -----
+
+    /**
+     * Filter and sort notifications by score.
+     * Returns only notifications above PRIORITY_THRESHOLD, sorted by score (highest first).
      */
     fun filterAndSortByScore(notifications: List<NotificationData>): List<NotificationData> {
         return notifications
@@ -108,7 +333,7 @@ class NotificationFilter(private val userContext: UserContext) {
     }
 
     /**
-     * Get all notifications with their scores (for debugging/display)
+     * Get all notifications with their scores (for debugging/display).
      */
     fun getNotificationsWithScores(notifications: List<NotificationData>): List<Pair<NotificationData, Int>> {
         return notifications
@@ -116,173 +341,23 @@ class NotificationFilter(private val userContext: UserContext) {
             .sortedByDescending { (_, score) -> score }
     }
 
-    // ----- Scoring Functions -----
-
-    private fun getAppScore(appName: String, rules: PriorityRules): Int {
-        val lowerAppName = appName.lowercase()
-
-        // Check high-priority apps (email, messaging, calendar)
-        if (rules.highPriorityApps.any { lowerAppName.contains(it.lowercase()) }) {
-            return SCORE_HIGH_PRIORITY_APP
-        }
-
-        // Check financial apps
-        if (rules.financialApps.any { lowerAppName.contains(it.lowercase()) }) {
-            return SCORE_FINANCIAL_APP
-        }
-
-        // Check neutral apps (social media)
-        if (rules.neutralApps.any { lowerAppName.contains(it.lowercase()) }) {
-            return SCORE_NEUTRAL_APP
-        }
-
-        // Default: slightly below neutral (unknown apps)
-        return SCORE_LOW_PRIORITY_APP
-    }
-
-    private fun getUserKeywordScore(notification: NotificationData, rules: PriorityRules): Int {
-        val content = "${notification.title} ${notification.text}".lowercase()
-        var score = 0
-
-        rules.keywords.forEach { keyword ->
-            if (content.contains(keyword.lowercase())) {
-                score += SCORE_USER_KEYWORD
-            }
-        }
-
-        return score
-    }
-
-    private fun getDomainScore(notification: NotificationData, rules: PriorityRules): Int {
-        val content = "${notification.title} ${notification.text}".lowercase()
-        var score = 0
-
-        rules.domains.forEach { domain ->
-            if (content.contains(domain.lowercase())) {
-                score += SCORE_DOMAIN
-            }
-        }
-
-        return score
-    }
-
-    private fun getSenderScore(notification: NotificationData, rules: PriorityRules): Int {
-        val title = notification.title?.lowercase() ?: ""
-        var score = 0
-
-        rules.senders.forEach { sender ->
-            if (title.contains(sender.lowercase())) {
-                score += SCORE_SENDER
-            }
-        }
-
-        return score
-    }
-
-    private fun getContactScore(notification: NotificationData, rules: PriorityRules): Int {
-        val content = "${notification.title} ${notification.text}".lowercase()
-        var score = 0
-
-        rules.contacts.forEach { contact ->
-            if (content.contains(contact.lowercase())) {
-                score += SCORE_CONTACT
-            }
-        }
-
-        return score
-    }
-
-    private fun getUrgentKeywordScore(notification: NotificationData): Int {
-        val content = "${notification.title} ${notification.text}".lowercase()
-        var score = 0
-
-        URGENT_KEYWORDS.forEach { keyword ->
-            if (content.contains(keyword)) {
-                score += SCORE_URGENT_KEYWORD
-            }
-        }
-
-        return score
-    }
-
-    private fun getTemporalKeywordScore(notification: NotificationData): Int {
-        val content = "${notification.title} ${notification.text}".lowercase()
-        var score = 0
-
-        TEMPORAL_KEYWORDS.forEach { keyword ->
-            if (content.contains(keyword)) {
-                score += SCORE_TEMPORAL_KEYWORD
-            }
-        }
-
-        return score
-    }
-
-    private fun getPersonalReferenceScore(notification: NotificationData): Int {
-        val content = "${notification.title} ${notification.text}".lowercase()
-        var score = 0
-
-        PERSONAL_KEYWORDS.forEach { keyword ->
-            if (content.contains(keyword)) {
-                score += SCORE_PERSONAL_REFERENCE
-                return score // Only count once
-            }
-        }
-
-        return score
-    }
-
-    private fun getCalendarTemporalScore(notification: NotificationData): Int {
-        // Check if this is a calendar notification
-        val isCalendar = notification.appName.lowercase().contains("calendar") ||
-                notification.category == "event"
-
-        if (!isCalendar) return 0
-
-        // Try to extract time information from the notification
-        // For now, use Android's priority field as a proxy (high priority = soon)
-        // TODO: More sophisticated time extraction from notification text
-
-        val now = System.currentTimeMillis()
-        val notificationAge = now - notification.timestamp
-
-        // If notification is very recent (< 30 min old), assume event is soon
-        if (notificationAge < 30 * 60 * 1000) {
-            return SCORE_CALENDAR_NEXT_30MIN
-        }
-
-        // If notification is recent (< 24h old), assume event is today/tomorrow
-        if (notificationAge < 24 * 60 * 60 * 1000) {
-            return SCORE_CALENDAR_NEXT_24H
-        }
-
-        // If notification is within a week, give normal boost
-        if (notificationAge < 7 * 24 * 60 * 60 * 1000) {
-            return SCORE_CALENDAR_NEXT_7D
-        }
-
-        return 0
-    }
-
-    // ----- Legacy API (for backward compatibility) -----
-
     /**
-     * Binary classification (for backward compatibility)
-     * Returns true if score >= PRIORITY_THRESHOLD
+     * Binary classification (for backward compatibility).
+     * Returns true if score >= PRIORITY_THRESHOLD.
      */
     fun isPriority(notification: NotificationData): Boolean {
         return scoreNotification(notification) >= PRIORITY_THRESHOLD
     }
 
     /**
-     * Filter only priority notifications (for backward compatibility)
+     * Filter only priority notifications (for backward compatibility).
      */
     fun filterPriority(notifications: List<NotificationData>): List<NotificationData> {
         return filterAndSortByScore(notifications)
     }
 
     /**
-     * Classify notifications into priority and non-priority groups
+     * Classify notifications into priority and non-priority groups.
      */
     data class ClassificationResult(
         val priority: List<NotificationData>,

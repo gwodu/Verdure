@@ -118,6 +118,13 @@ class VerdureNotificationListener : NotificationListenerService() {
                 Log.d(TAG, "ContentIntent available for notification from $appName")
             }
 
+            // Extract metadata for enhanced scoring
+            val hasActions = notification.actions?.isNotEmpty() == true
+            val hasImage = extras.containsKey(Notification.EXTRA_PICTURE) ||
+                          extras.containsKey(Notification.EXTRA_LARGE_ICON) ||
+                          extras.containsKey(Notification.EXTRA_BIG_PICTURE)
+            val isOngoing = (notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+
             return NotificationData(
                 id = nextId++,
                 packageName = sbn.packageName,
@@ -127,7 +134,12 @@ class VerdureNotificationListener : NotificationListenerService() {
                 timestamp = sbn.postTime,
                 category = notification.category,
                 priority = notification.priority,
-                contentIntent = contentIntent  // Capture the intent to open the app
+                contentIntent = contentIntent,  // Capture the intent to open the app
+
+                // Metadata for enhanced scoring
+                hasActions = hasActions,
+                hasImage = hasImage,
+                isOngoing = isOngoing
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error extracting notification data", e)
