@@ -1082,4 +1082,138 @@ Call 1: Detect intent + respond (~1-2 sec)
 
 ---
 
+## Session 13 - November 23, 2025
+
+### What Was Done
+- **Implemented robust 15+ factor notification heuristic**
+  - Created `ScoringKeywords.kt` with organized keyword sets and app tiers
+  - Enhanced `NotificationData` with metadata fields (hasActions, hasImage, isOngoing)
+  - Refactored `NotificationFilter` with granular multi-factor scoring
+  - Score range: -5 to +24 (expanded from 0-24)
+  - 15+ factors across 7 dimensions (app tiers, content analysis, temporal, metadata, etc.)
+
+- **Fixed build errors**
+  - Upgraded Kotlin 1.9.22 → 2.0.21 (required for Java 21 compatibility)
+  - Fixed Android API usage (removed non-existent `EXTRA_BIG_PICTURE` constant)
+
+- **Improved LLM prompt engineering**
+  - Identified overfitting issue with single example ("Outlook from John")
+  - Tested 5 diverse examples (didn't help)
+  - Switched to zero-shot prompt (current state)
+
+### Key Decisions
+
+**Decision #1: Multi-factor scoring over binary classification**
+**Why:** Real-world importance is a spectrum, not binary
+**Implementation:**
+- App tiers: User (+4), Tier 1 (+3), Tier 2 (+2), Tier 3 (+1), Low (-2)
+- Urgency keywords in 3 tiers: Critical (+5), Important (+3), Soon (+2)
+- Content signals: Questions (+2), ALL CAPS (+2), Currency (+2), etc.
+- Temporal: Fresh (+2 for <5min, +1 for <30min), Stale (-1 for >24h)
+- Metadata: Android HIGH priority (+3), has actions (+1), ongoing (-3)
+**Tradeoff:** More complex logic vs significantly better prioritization (acceptable)
+
+**Decision #2: Kotlin 2.0.21 upgrade (from 1.9.22)**
+**Why:** MediaPipe compiled with Java 21, Kotlin 1.9.x doesn't fully support it
+**Tradeoff:** Breaking changes in Kotlin 2.0 vs necessary for Java 21 (must upgrade)
+
+**Decision #3: Zero-shot prompt (no examples)**
+**Why:** Single example caused overfitting, 5 examples didn't help
+**Current status:** Fixes overfitting but intent detection still unreliable (classifies everything as `update_priorities`)
+**Next:** Phase 2 double-pass system or keyword-based routing
+
+### Testing Results
+
+✅ **Fixed:**
+- No longer overfitting to "Outlook from John" pattern
+- Smart responses to greetings ("hi", "hello")
+- Build succeeds with Kotlin 2.0.21 + Java 21
+
+⚠️ **Still Issues:**
+- Intent detection unreliable (everything classified as `update_priorities`)
+- JSON generation consistency concerns
+
+### Technical Improvements
+
+**Notification Scoring (Session 9 → Session 13):**
+- Before: 8 factors, binary scoring (+2/-1), cap at 24
+- After: 15+ factors, granular scoring (0-5 scales), range -5 to +24
+
+**Example score breakdown:**
+```
+Gmail notification: "Urgent: Interview tomorrow at 2pm"
++ 2 (Communication Tier 2: Gmail)
++ 5 (Urgency Tier 1: "urgent")
++ 3 (Meeting keyword: "interview")
++ 2 (Temporal keyword: "tomorrow")
++ 2 (Question implied)
++ 2 (Fresh: <5 min old)
+= 16 (high priority)
+```
+
+**Build System:**
+- Kotlin: 1.9.22 → 2.0.21
+- AGP: 8.5.2 (unchanged)
+- Gradle: 8.11.1 (unchanged)
+- Java: 21 (unchanged)
+
+### Files Changed (Session 13)
+
+**Created:**
+- `VerdureApp/app/src/main/java/com/verdure/data/ScoringKeywords.kt`
+
+**Modified:**
+- `VerdureApp/app/src/main/java/com/verdure/data/NotificationData.kt` - Added metadata fields
+- `VerdureApp/app/src/main/java/com/verdure/data/NotificationFilter.kt` - Complete refactor (300 → 374 lines)
+- `VerdureApp/app/src/main/java/com/verdure/services/VerdureNotificationListener.kt` - Extract metadata
+- `VerdureApp/build.gradle` - Kotlin 2.0.21
+- `VerdureApp/app/build.gradle` - Kotlin serialization 2.0.21
+- `VerdureApp/app/src/main/java/com/verdure/core/VerdureAI.kt` - Prompt improvements
+
+### Commits
+- `929d93a` - Implement robust multi-factor notification heuristic (15+ factors)
+- `1888892` - Fix build errors: Upgrade Kotlin to 2.0.21 and fix Android API usage
+- `8102702` - Improve LLM prompt with diverse examples to prevent overfitting
+- `54e5982` - Remove all prompt examples - go zero-shot for JSON generation
+
+### Future Considerations
+
+**Intent Detection Improvements:**
+- **Phase 2: Double-pass system** (from NEXT_STEPS.md)
+  - Pass 1: Simple intent classification (just intent, minimal JSON)
+  - Pass 2: Separate extraction prompts for each intent type
+  - Benefit: Smaller JSON payloads, more reliable parsing
+
+- **Simple NLP alternative** (future exploration)
+  - Consider spaCy, NLTK, or custom rule-based NLP
+  - Pattern matching for entities (apps, names, emails)
+  - Intent classification with shallow ML (SVM, Naive Bayes)
+  - Benefit: No JSON parsing, faster, more reliable
+  - Tradeoff: Less flexible than LLM, requires training data
+
+**User Behavior Tracking (Future):**
+- Track notification open rate per app
+- Learn from dismissal patterns
+- Adapt scoring weights based on user behavior
+- Privacy-first: All tracking on-device, no telemetry
+
+### Current Status
+
+✅ **Working:**
+- Enhanced 15+ factor notification scoring
+- Build system (Kotlin 2.0.21 + Java 21)
+- Verdure brand UI
+- Zero-shot prompt (no overfitting)
+
+⚠️ **Known Issues:**
+- Intent detection unreliable (everything → `update_priorities`)
+- JSON generation consistency
+
+🔧 **Next Steps:**
+- Test enhanced scoring on device
+- Decide: Phase 2 double-pass OR keyword-based routing
+- Explore simple NLP as alternative to LLM-based intent detection
+
+---
+
 *Development philosophy: Build working systems incrementally. Validate architecture before adding complexity. Ship value early, optimize later.*
