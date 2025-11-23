@@ -3,25 +3,33 @@ package com.verdure.core
 import android.util.Log
 import com.verdure.data.UserContextManager
 import com.verdure.data.NotificationData
-import com.verdure.data.IntentResponse
 import com.verdure.data.PriorityChanges
 import com.verdure.tools.Tool
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Central AI orchestrator for Verdure
  *
- * This is the "brain" that:
- * 1. Manages all available tools (NotificationTool, etc.)
- * 2. Uses single-pass LLM intent detection (structured JSON output)
- * 3. Routes based on detected intent (update_priorities, analyze_notifications, chat)
- * 4. Applies priority changes when user teaches the system
- * 5. Maintains user context (goals, priorities, rules)
+ * Architecture: Two-pass intent detection system
  *
- * Architecture: Single-pass structured output
- * - One LLM call outputs: intent + changes + message
- * - No performance penalty vs keyword routing
- * - Handles any phrasing, not just specific keywords
+ * PASS 1: Intent Classification
+ * - Minimal prompt: Just classify the intent
+ * - Returns: {"intent": "...", "confidence": "..."}
+ * - Fast, focused, reliable
+ *
+ * PASS 2: Intent-Specific Processing
+ * - notification_query → Fetch notifications + synthesize
+ * - notification_rerank → Extract priority changes + apply
+ * - chat → Generate natural response
+ *
+ * Benefits:
+ * - Cleaner separation of concerns
+ * - Smaller JSON payloads (more reliable)
+ * - Intent classification separate from extraction
+ * - Easier to debug and improve
  */
 class VerdureAI(
     private val llmEngine: LLMEngine,
@@ -40,9 +48,6 @@ class VerdureAI(
 
     /**
      * Register a tool to be available for use
-     * Call this during app initialization for each tool you want to enable
-     *
-     * Example: verdureAI.registerTool(NotificationTool())
      */
     fun registerTool(tool: Tool) {
         tools[tool.name] = tool
@@ -50,134 +55,291 @@ class VerdureAI(
     }
 
     /**
-     * Process a user request and return a response
+     * Process a user request with two-pass system
      *
-     * New architecture: Single-pass intent detection
-     * 1. Load user context
-     * 2. Build structured output prompt
-     * 3. LLM generates JSON with intent + changes + message
-     * 4. Parse JSON response
-     * 5. Route based on intent and apply changes
-     * 6. Return natural language response
-     *
-     * @param userMessage The user's input/question
-     * @return AI-generated response
+     * Pass 1: Classify intent (notification_query, notification_rerank, chat)
+     * Pass 2: Handle based on intent with appropriate prompt
      */
     suspend fun processRequest(userMessage: String): String {
-        val contextJson = contextManager.getContextAsJson()
+        // PASS 1: Intent Classification
+        val intentPrompt = buildIntentClassificationPrompt(userMessage)
+        val intentJson = llmEngine.generateContent(intentPrompt)
+        val intent = parseIntent(intentJson)
 
-        // Single LLM call with structured output
-        val prompt = buildStructuredOutputPrompt(userMessage, contextJson)
-        val llmOutput = llmEngine.generateContent(prompt)
+        Log.d(TAG, "Detected intent: $intent")
 
-        Log.d(TAG, "LLM output: ${llmOutput.take(200)}...")
-
-        // Parse JSON response
-        val intentResponse = parseIntentResponse(llmOutput)
-
-        Log.d(TAG, "Detected intent: ${intentResponse.intent}")
-
-        // Route based on intent
-        return when (intentResponse.intent) {
-            "update_priorities" -> {
-                intentResponse.changes?.let { rawChanges ->
-                    // Validate changes before applying
-                    val validatedChanges = validatePriorityChanges(rawChanges)
-                    Log.d(TAG, "Applying validated priority changes: $validatedChanges")
-                    contextManager.applyPriorityChanges(validatedChanges)
-                }
-                intentResponse.message
-            }
-            "query_priorities", "analyze_notifications" -> {
-                // Hybrid approach: Fetch actual notifications and synthesize
-                synthesizeNotifications(userMessage, contextJson)
-            }
+        // PASS 2: Intent-Specific Processing
+        return when (intent) {
+            "notification_query" -> handleNotificationQuery(userMessage)
+            "notification_rerank" -> handleNotificationRerank(userMessage)
+            "chat" -> handleChat(userMessage)
             else -> {
-                // General conversation (chat)
-                intentResponse.message
+                Log.w(TAG, "Unknown intent: $intent, falling back to chat")
+                handleChat(userMessage)
             }
         }
     }
 
+    // ----- PASS 1: Intent Classification -----
+
     /**
-     * Synthesize notifications for query_priorities and analyze_notifications intents
-     *
-     * Makes a second LLM call with actual notification data.
-     * Only called when user asks about their priorities or notifications.
+     * Build minimal prompt for intent classification only
      */
-    private suspend fun synthesizeNotifications(userMessage: String, contextJson: String): String {
+    private fun buildIntentClassificationPrompt(userMessage: String): String {
+        return """
+You are V, a personal AI assistant for notification management.
+
+Your job: Identify the user's intention and respond with ONLY a JSON object.
+
+User message: "$userMessage"
+
+Classify into ONE of these intents:
+1. notification_query - User asks about their notifications
+   - Examples: "what's urgent?", "show me important messages", "what do I need to know?"
+
+2. notification_rerank - User wants to make some notifications more/less important
+   - Examples: "prioritize Discord", "make work emails more important", "ignore Instagram", "focus on messages from Sarah"
+
+3. chat - User is having a conversation, asking follow-up questions, or chatting casually
+   - Examples: "hi", "thanks", "what can you do?", "how does this work?"
+
+IMPORTANT:
+- If user greets you (hi, hello, hey) → chat
+- If user asks about their current priorities ("what are my priorities?") → chat
+- If user asks about notifications → notification_query
+- If user wants to change what's important → notification_rerank
+
+Respond with ONLY this JSON format (no extra text):
+{
+  "intent": "notification_query OR notification_rerank OR chat",
+  "confidence": "high OR medium OR low"
+}
+
+Examples:
+
+Input: "what's urgent today?"
+Output: {"intent": "notification_query", "confidence": "high"}
+
+Input: "prioritize emails from work"
+Output: {"intent": "notification_rerank", "confidence": "high"}
+
+Input: "hi there"
+Output: {"intent": "chat", "confidence": "high"}
+
+Input: "what are my current priorities?"
+Output: {"intent": "chat", "confidence": "high"}
+
+Now classify the user's message:
+        """.trimIndent()
+    }
+
+    /**
+     * Parse intent from Pass 1 JSON response
+     */
+    private fun parseIntent(json: String): String {
+        return try {
+            val jsonStart = json.indexOf('{')
+            val jsonEnd = json.lastIndexOf('}') + 1
+
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                val jsonString = json.substring(jsonStart, jsonEnd)
+                val jsonObj = this.json.parseToJsonElement(jsonString).jsonObject
+                jsonObj["intent"]?.jsonPrimitive?.content ?: "chat"
+            } else {
+                Log.w(TAG, "No JSON found in intent response, defaulting to chat")
+                "chat"
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse intent, defaulting to chat", e)
+            "chat"
+        }
+    }
+
+    // ----- PASS 2A: Notification Query -----
+
+    /**
+     * Handle notification_query intent
+     * Fetches top priority notifications and synthesizes summary
+     */
+    private suspend fun handleNotificationQuery(userMessage: String): String {
         val notificationTool = tools["notification_filter"]
 
         if (notificationTool == null) {
             return "I don't have access to your notifications right now."
         }
 
-        // Get top priority notifications (limit to 8 to stay within token budget)
-        val notificationsResult = notificationTool.execute(mapOf("action" to "get_priority", "limit" to 8))
+        // Get top 8 priority notifications from heuristic scoring
+        val notificationsResult = notificationTool.execute(
+            mapOf("action" to "get_priority", "limit" to 8)
+        )
+
+        val context = contextManager.getContext()
 
         // Second LLM call to synthesize
-        val synthesisPrompt = """
-You are V, a helpful personal assistant.
+        val summaryPrompt = buildNotificationSummaryPrompt(
+            userMessage,
+            notificationsResult,
+            context
+        )
 
-User context:
-$contextJson
-
-Priority notifications:
-$notificationsResult
-
-User: "$userMessage"
-
-Provide a helpful summary of their priority notifications. Be concise (1-2 sentences per notification).
-        """.trimIndent()
-
-        Log.d(TAG, "Synthesizing notifications with second LLM call")
-        return llmEngine.generateContent(synthesisPrompt)
+        Log.d(TAG, "Synthesizing notification query with second LLM call")
+        return llmEngine.generateContent(summaryPrompt)
     }
 
     /**
-     * Build structured output prompt for single-pass intent detection
-     *
-     * Simplified prompt design:
-     * - Minimal instructions (simpler = less confusion)
-     * - Emphasizes context-awareness
-     * - Uses brackets [placeholder] to avoid literal copying
-     * - No verbose examples that Gemma might copy
+     * Build prompt for notification summary (Pass 2A)
      */
-    private fun buildStructuredOutputPrompt(userMessage: String, contextJson: String): String {
+    private fun buildNotificationSummaryPrompt(
+        userMessage: String,
+        notificationList: String,
+        context: com.verdure.data.UserContext
+    ): String {
         return """
-You are V, a helpful context-aware personal assistant with access to your user's information and priorities.
+You are V, the user's personal AI assistant.
 
-Context:
-$contextJson
+User's priorities: ${context.priorityRules.keywords.joinToString(", ").ifEmpty { "None set yet" }}
+High priority apps: ${context.priorityRules.highPriorityApps.joinToString(", ").ifEmpty { "None set yet" }}
 
-User: "$userMessage"
+Recent urgent notifications (sorted by importance):
+$notificationList
 
-Respond with JSON:
+User asked: "$userMessage"
+
+Provide a helpful, concise summary of the notifications that answers their question.
+Focus on what's most urgent and important based on their priorities.
+
+Response:
+        """.trimIndent()
+    }
+
+    // ----- PASS 2B: Notification Rerank -----
+
+    /**
+     * Handle notification_rerank intent
+     * Extracts priority changes and applies them
+     */
+    private suspend fun handleNotificationRerank(userMessage: String): String {
+        val context = contextManager.getContext()
+
+        // Second LLM call to extract priority changes
+        val updatePrompt = buildPriorityUpdatePrompt(userMessage, context)
+        val updateJson = llmEngine.generateContent(updatePrompt)
+
+        Log.d(TAG, "Extracting priority changes with second LLM call")
+
+        val result = parsePriorityUpdateResponse(updateJson)
+
+        if (result != null) {
+            // Validate and apply changes
+            val validatedChanges = validatePriorityChanges(result.changes)
+            contextManager.applyPriorityChanges(validatedChanges)
+            return result.message
+        } else {
+            return "I couldn't understand which notifications to prioritize. Can you be more specific?"
+        }
+    }
+
+    /**
+     * Build prompt for priority update extraction (Pass 2B)
+     */
+    private fun buildPriorityUpdatePrompt(
+        userMessage: String,
+        context: com.verdure.data.UserContext
+    ): String {
+        return """
+You are V, a personal AI assistant.
+
+Current user priorities:
+${context.toJson()}
+
+User message: "$userMessage"
+
+Extract what the user wants to prioritize or deprioritize. Respond with ONLY valid JSON:
+
 {
-  "intent": "update_priorities" | "query_priorities" | "analyze_notifications" | "chat",
-  "changes": { "add_keywords": [], "add_high_priority_apps": [], "add_senders": [], "add_contacts": [], "add_domains": [], "remove_keywords": [], "remove_high_priority_apps": [], "remove_senders": [], "remove_contacts": [], "remove_domains": [] },
-  "message": "[your helpful response]"
+  "changes": {
+    "add_high_priority_apps": ["App1", "App2"],
+    "add_keywords": ["keyword1", "keyword2"],
+    "add_senders": ["email@example.com"],
+    "add_contacts": ["Person Name"],
+    "add_domains": [".edu", ".gov"],
+    "remove_high_priority_apps": [],
+    "remove_keywords": [],
+    "remove_senders": [],
+    "remove_contacts": [],
+    "remove_domains": []
+  },
+  "message": "[Your confirmation message to user]"
 }
 
-Intents:
-- update_priorities: User wants to ADD/REMOVE priorities (prioritize, focus, ignore, deprioritize)
-- query_priorities: User asks WHAT their current priorities are
-- analyze_notifications: User asks about THEIR NOTIFICATIONS
-- chat: Everything else (greetings, questions, conversation)
+Guidelines:
+- App names: Exact app names (Discord, Gmail, Instagram, WhatsApp, etc.)
+- Keywords: Important words/phrases user cares about
+- Senders: Email addresses (user@example.com)
+- Contacts: Person names (John Smith, Sarah)
+- Domains: Email domains (.edu, .gov, @company.com)
+- If user says "ignore" or "deprioritize", use remove_ fields
 
-Rules:
-- add_senders: Email addresses only (user@example.com)
-- add_contacts: Person names only (John, Sarah, Mom)
-- add_domains: Must start with . (like .edu, .gov)
-- NOT update_priorities: "Hi", "How are you", "What are my priorities"
+Examples:
 
-Output only valid JSON, no extra text.
+Input: "prioritize Discord and emails from james deck"
+Output: {
+  "changes": {
+    "add_high_priority_apps": ["Discord"],
+    "add_contacts": ["james deck"]
+  },
+  "message": "Got it! I've prioritized Discord and messages from James Deck."
+}
+
+Input: "focus on work emails"
+Output: {
+  "changes": {
+    "add_keywords": ["work"]
+  },
+  "message": "I'll prioritize work-related emails for you."
+}
+
+Input: "stop showing Instagram"
+Output: {
+  "changes": {
+    "remove_high_priority_apps": ["Instagram"]
+  },
+  "message": "Instagram notifications will be deprioritized."
+}
+
+Now extract from the user's message:
         """.trimIndent()
     }
 
+    @Serializable
+    private data class PriorityUpdateResponse(
+        val changes: PriorityChanges,
+        val message: String
+    )
+
     /**
-     * Validate and sanitize priority changes
-     * Rejects nonsensical changes like "Whatsapp" as a domain
+     * Parse priority update response from Pass 2B
+     */
+    private fun parsePriorityUpdateResponse(json: String): PriorityUpdateResponse? {
+        return try {
+            val jsonStart = json.indexOf('{')
+            val jsonEnd = json.lastIndexOf('}') + 1
+
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                val jsonString = json.substring(jsonStart, jsonEnd)
+                this.json.decodeFromString<PriorityUpdateResponse>(jsonString)
+            } else {
+                Log.w(TAG, "No JSON found in priority update response")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse priority update response", e)
+            null
+        }
+    }
+
+    /**
+     * Validate priority changes to prevent invalid data
      */
     private fun validatePriorityChanges(changes: PriorityChanges): PriorityChanges {
         return changes.copy(
@@ -193,39 +355,47 @@ Output only valid JSON, no extra text.
         )
     }
 
+    // ----- PASS 2C: Chat -----
+
     /**
-     * Parse LLM output into IntentResponse
-     *
-     * Handles cases where LLM adds extra text around JSON.
-     * Falls back to treating response as chat if JSON parsing fails.
+     * Handle chat intent
+     * Simple conversational response
      */
-    private fun parseIntentResponse(llmOutput: String): IntentResponse {
-        try {
-            // Try to extract JSON from response (handle cases where LLM adds extra text)
-            val jsonStart = llmOutput.indexOf('{')
-            val jsonEnd = llmOutput.lastIndexOf('}') + 1
+    private suspend fun handleChat(userMessage: String): String {
+        val context = contextManager.getContext()
+        val chatPrompt = buildChatPrompt(userMessage, context)
 
-            if (jsonStart >= 0 && jsonEnd > jsonStart) {
-                val jsonString = llmOutput.substring(jsonStart, jsonEnd)
-                return json.decodeFromString<IntentResponse>(jsonString)
-            }
-
-            // Fallback: treat as chat
-            Log.w(TAG, "No JSON found in LLM output, treating as chat")
-            return IntentResponse(
-                intent = "chat",
-                changes = null,
-                message = llmOutput
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse intent response, treating as chat", e)
-            return IntentResponse(
-                intent = "chat",
-                changes = null,
-                message = llmOutput
-            )
-        }
+        Log.d(TAG, "Generating chat response with LLM")
+        return llmEngine.generateContent(chatPrompt)
     }
+
+    /**
+     * Build prompt for chat response (Pass 2C)
+     */
+    private fun buildChatPrompt(
+        userMessage: String,
+        context: com.verdure.data.UserContext
+    ): String {
+        return """
+You are V, a personal AI assistant for notification management.
+
+What you can do:
+- Summarize urgent/important notifications
+- Help users prioritize specific apps, people, or topics
+- Answer questions about their priorities
+
+Current user priorities:
+- Apps: ${context.priorityRules.highPriorityApps.joinToString(", ").ifEmpty { "None set yet" }}
+- Keywords: ${context.priorityRules.keywords.joinToString(", ").ifEmpty { "None set yet" }}
+- Important contacts: ${context.priorityRules.contacts.joinToString(", ").ifEmpty { "None set yet" }}
+
+User: "$userMessage"
+
+Respond naturally and helpfully:
+        """.trimIndent()
+    }
+
+    // ----- Public API -----
 
     /**
      * List all available tools (useful for debugging)
