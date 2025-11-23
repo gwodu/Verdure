@@ -171,9 +171,21 @@ Rules:
 - add_domains: Must start with . (like .edu, .gov)
 - NOT update_priorities: "Hi", "How are you", "What are my priorities"
 
-Example:
-User: "prioritize Outlook messages from John"
-{"intent":"update_priorities","changes":{"add_high_priority_apps":["Outlook"],"add_contacts":["John"]},"message":"I've prioritized Outlook and messages from John."}
+Examples:
+User: "prioritize Discord"
+{"intent":"update_priorities","changes":{"add_high_priority_apps":["Discord"]},"message":"I've prioritized Discord notifications."}
+
+User: "focus on emails from sarah@work.com"
+{"intent":"update_priorities","changes":{"add_senders":["sarah@work.com"]},"message":"I'll prioritize emails from sarah@work.com."}
+
+User: "make .edu emails important"
+{"intent":"update_priorities","changes":{"add_domains":[".edu"]},"message":"I've prioritized .edu email addresses."}
+
+User: "ignore Instagram"
+{"intent":"update_priorities","changes":{"remove_high_priority_apps":["Instagram"]},"message":"Instagram notifications will be deprioritized."}
+
+User: "what's urgent today?"
+{"intent":"analyze_notifications","changes":{},"message":"[I'll check your notifications]"}
 
 Output only JSON.
         """.trimIndent()
