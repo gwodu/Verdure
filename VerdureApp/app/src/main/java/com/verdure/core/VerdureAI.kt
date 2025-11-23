@@ -173,7 +173,7 @@ Now classify the user's message:
             mapOf("action" to "get_priority", "limit" to 8)
         )
 
-        val context = contextManager.getContext()
+        val context = contextManager.loadContext()
 
         // Second LLM call to synthesize
         val summaryPrompt = buildNotificationSummaryPrompt(
@@ -219,7 +219,7 @@ Response:
      * Extracts priority changes and applies them
      */
     private suspend fun handleNotificationRerank(userMessage: String): String {
-        val context = contextManager.getContext()
+        val context = contextManager.loadContext()
 
         // Second LLM call to extract priority changes
         val updatePrompt = buildPriorityUpdatePrompt(userMessage, context)
@@ -362,7 +362,7 @@ Now extract from the user's message:
      * Simple conversational response
      */
     private suspend fun handleChat(userMessage: String): String {
-        val context = contextManager.getContext()
+        val context = contextManager.loadContext()
         val chatPrompt = buildChatPrompt(userMessage, context)
 
         Log.d(TAG, "Generating chat response with LLM")
