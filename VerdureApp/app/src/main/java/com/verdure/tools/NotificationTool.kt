@@ -38,6 +38,29 @@ class NotificationTool(
             return formatNotificationsForContext(notifications)
         }
 
+        // If action is "search", filter by keywords
+        if (action == "search") {
+            val keywords = params["keywords"] as? List<*>
+            val keywordStrings = keywords?.mapNotNull { it as? String } ?: emptyList()
+            val limit = params["limit"] as? Int ?: 10
+
+            val notifications = searchNotifications(keywordStrings, limit)
+            if (notifications.isEmpty()) {
+                return "No notifications found matching: ${keywordStrings.joinToString(", ")}"
+            }
+            return formatNotificationsForContext(notifications)
+        }
+
+        // Handle "get_priority" action (for compatibility with VerdureAI)
+        if (action == "get_priority") {
+            val limit = params["limit"] as? Int ?: 8
+            val notifications = getPriorityNotifications(limit)
+            if (notifications.isEmpty()) {
+                return "No priority notifications right now."
+            }
+            return formatNotificationsForContext(notifications)
+        }
+
         // Otherwise, use LLM to analyze (original behavior)
         val userQuery = params["query"] as? String ?: "What's important?"
 
@@ -117,5 +140,36 @@ Provide a brief, clear summary.
 
         // Return top N priority notifications (not all notifications)
         return priorityNotifications.take(limit)
+    }
+
+    /**
+     * Search notifications by keywords (manual filtering, no LLM)
+     *
+     * Flow:
+     * 1. Get ALL notifications from service
+     * 2. Filter by keyword matching in app name, title, or text
+     * 3. Return matching notifications (up to limit)
+     *
+     * This enables "find notifications about X" queries
+     */
+    private fun searchNotifications(keywords: List<String>, limit: Int = 10): List<NotificationData> {
+        val allNotifications = VerdureNotificationListener.notifications.value
+
+        if (keywords.isEmpty()) {
+            // No keywords? Just return recent notifications
+            return allNotifications.take(limit)
+        }
+
+        // Filter notifications that contain ANY of the keywords (case-insensitive)
+        val matchingNotifications = allNotifications.filter { notif ->
+            keywords.any { keyword ->
+                val lowerKeyword = keyword.lowercase()
+                notif.appName.lowercase().contains(lowerKeyword) ||
+                (notif.title?.lowercase()?.contains(lowerKeyword) == true) ||
+                (notif.text?.lowercase()?.contains(lowerKeyword) == true)
+            }
+        }
+
+        return matchingNotifications.take(limit)
     }
 }
