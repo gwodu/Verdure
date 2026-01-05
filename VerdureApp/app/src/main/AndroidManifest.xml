@@ -30,6 +30,12 @@
             </intent-filter>
         </service>
 
+        <!-- Background service for automatic LLM summarization -->
+        <service
+            android:name=".services.NotificationSummarizationService"
+            android:enabled="true"
+            android:exported="false" />
+
     </application>
 
 </manifest>

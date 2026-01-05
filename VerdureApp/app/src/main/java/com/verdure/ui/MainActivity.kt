@@ -59,6 +59,9 @@ class MainActivity : AppCompatActivity() {
         // Initialize AI components
         initializeAI()
 
+        // Start background summarization service
+        startNotificationSummarizationService()
+
         requestPermissionButton.setOnClickListener {
             requestAllPermissions()
         }
@@ -69,6 +72,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         checkPermissionsAndSetup()
+    }
+
+    /**
+     * Start the background notification summarization service.
+     */
+    private fun startNotificationSummarizationService() {
+        val serviceIntent = Intent(this, com.verdure.services.NotificationSummarizationService::class.java)
+        startService(serviceIntent)
     }
 
     /**
