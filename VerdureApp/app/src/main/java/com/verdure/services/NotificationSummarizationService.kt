@@ -47,7 +47,17 @@ class NotificationSummarizationService : Service() {
         
         try {
             // Initialize LLM engine
-            llmEngine = MediaPipeLLMEngine(applicationContext)
+            scope.launch {
+                Log.d(TAG, "Initializing LLM engine...")
+                llmEngine = MediaPipeLLMEngine(applicationContext)
+                val success = llmEngine.initialize()
+                
+                if (success) {
+                    Log.d(TAG, "LLM engine initialized successfully")
+                } else {
+                    Log.e(TAG, "Failed to initialize LLM engine")
+                }
+            }
             
             // Initialize filter with user context
             val contextManager = UserContextManager.getInstance(applicationContext)
