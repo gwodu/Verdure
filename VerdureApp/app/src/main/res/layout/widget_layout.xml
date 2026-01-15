@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@drawable/widget_background">
+
+    <!-- Header Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="VERDURE"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/accent_primary"
+            android:letterSpacing="0.1" />
+
+        <TextView
+            android:id="@+id/widget_subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Critical"
+            android:textSize="11sp"
+            android:textColor="@color/text_secondary"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Summary Content -->
+    <TextView
+        android:id="@+id/widget_summary"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="Loading..."
+        android:textSize="13sp"
+        android:textColor="@color/text_primary"
+        android:lineSpacingMultiplier="1.3"
+        android:gravity="top" />
+
+    <!-- Timestamp -->
+    <TextView
+        android:id="@+id/widget_timestamp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Updated just now"
+        android:textSize="10sp"
+        android:textColor="@color/text_tertiary"
+        android:layout_marginTop="8dp"
+        android:gravity="end" />
+
+</LinearLayout>

@@ -181,6 +181,7 @@ class NotificationSummarizationService : Service() {
     
     /**
      * Build LLM prompt for notification summarization.
+     * Optimized for widget display: ultra-concise, actionable bullet points.
      */
     private fun buildSummarizationPrompt(notifications: List<NotificationData>): String {
         val notifList = notifications.joinToString("\n") { notif ->
@@ -188,34 +189,42 @@ class NotificationSummarizationService : Service() {
         }
         
         return """
-You are V, a personal AI assistant. Summarize these critical notifications into brief, actionable points.
+You are V, a personal AI assistant. Summarize these critical notifications into ultra-concise, actionable points for a home screen widget.
 
 Critical notifications:
 $notifList
 
-Provide 1-2 concise bullet points per notification focusing on:
-- What action is needed
-- When it's needed (if time-sensitive)
-- Who it's from (if relevant)
+Rules:
+- Maximum 3 bullet points total (not per notification)
+- Each point: 8 words or less
+- Focus on ACTION needed, not description
+- Use present tense, imperative mood
+- Omit app names (user knows context)
+- Prioritize time-sensitive items first
 
-Keep each point under 10 words. Be direct and actionable.
+Examples:
+Input: "Gmail: Interview tomorrow at 9am - Please confirm availability"
+Output: • Confirm interview tomorrow 9am
 
-Summary:
+Input: "Slack: Meeting in 15 minutes - Join Zoom link"
+Output: • Join meeting in 15 min
+
+Input: "Chase Bank: Security Alert - Verify $500 transaction"
+Output: • Verify $500 bank transaction
+
+Now summarize:
         """.trimIndent()
     }
     
     /**
-     * Trigger widget update by broadcasting to VerdureWidgetProvider.
+     * Trigger widget update by calling VerdureWidgetProvider.
      */
     private fun updateWidget() {
-        // TODO: Implement when widget is created
-        // For now, just log
-        Log.d(TAG, "Widget update triggered (widget not yet implemented)")
-        
-        // Future implementation:
-        // val intent = Intent(this, VerdureWidgetProvider::class.java).apply {
-        //     action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-        // }
-        // sendBroadcast(intent)
+        try {
+            com.verdure.widget.VerdureWidgetProvider.updateAllWidgets(applicationContext)
+            Log.d(TAG, "Widget update triggered successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to trigger widget update", e)
+        }
     }
 }
