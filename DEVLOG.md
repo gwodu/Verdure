@@ -1217,3 +1217,32 @@ Gmail notification: "Urgent: Interview tomorrow at 2pm"
 ---
 
 *Development philosophy: Build working systems incrementally. Validate architecture before adding complexity. Ship value early, optimize later.*
+
+## 2026-01-15: Widget Implementation & LLM Architecture Refactor
+
+### Critical Notification Widget
+Implemented a home screen widget that displays ultra-concise summaries of high-priority notifications.
+- **Provider**: `VerdureWidgetProvider` handles updates and display logic.
+- **Service Integration**: `NotificationSummarizationService` triggers updates immediately after generating a summary.
+- **UI**: Added `widget_layout.xml` with "Critical" header and dynamic timestamp.
+
+### LLM Architecture Overhaul
+Refactored the core AI engine to resolve memory and compatibility issues.
+- **Singleton Pattern**: Converted `MediaPipeLLMEngine` to a Singleton. This fixes the `OutOfMemoryError` caused by the App and Widget Service trying to load two separate copies of the 1.5GB Gemma model.
+- **Gemma Prompt Formatting**: Investigated and fixed the `<unused21>` or garbage output issue. The Gemma 3 model requires specific `<start_of_turn>user` / `<start_of_turn>model` tokens. Added automatic prompt wrapping in `MediaPipeLLMEngine`.
+- **Initialization Fix**: Fixed a bug where `NotificationSummarizationService` was instantiating the engine but failing to call `initialize()`.
+
+### Commits
+- `da28faf` - Implement Home Screen Widget for Critical Notifications
+- `96fe861` - Fix: Initialize LLM engine in NotificationSummarizationService
+- `0debda2` - Refactor: Convert MediaPipeLLMEngine to Singleton and fix Gemma prompts
+
+### Current Status
+✅ **Working:**
+- Main App Chat (using Gemma 3)
+- Home Screen Widget (updates automatically)
+- Background Notification Analysis
+
+🔧 **Next Steps:**
+- Validate battery usage of background service
+- Explore richer widget interactions (e.g., open specific app)
