@@ -31,13 +31,28 @@ class MediaPipeLLMEngine(private val context: Context) : LLMEngine {
         const val MODEL_ASSET_PATH = "models/$MODEL_FILENAME"
 
         // Inference parameters (MediaPipe defaults)
-        const val MAX_TOKENS = 2048  // Increased from 512 to handle longer prompts
+        const val MAX_TOKENS = 2048
         const val TEMPERATURE = 0.8f
         const val TOP_K = 64
         const val RANDOM_SEED = 0
+        
+        @Volatile
+        private var instance: MediaPipeLLMEngine? = null
+        
+        fun getInstance(context: Context): MediaPipeLLMEngine {
+            return instance ?: synchronized(this) {
+                instance ?: MediaPipeLLMEngine(context.applicationContext).also { instance = it }
+            }
+        }
     }
 
     override suspend fun initialize(): Boolean {
+        // If already initialized, return true immediately
+        if (isInitialized && llmInference != null) {
+            println("⚡ MediaPipeLLMEngine already initialized")
+            return true
+        }
+        
         return withContext(Dispatchers.IO) {
             try {
                 println("🚀 MediaPipeLLMEngine: Initializing...")
@@ -96,17 +111,19 @@ class MediaPipeLLMEngine(private val context: Context) : LLMEngine {
         if (!isInitialized || llmInference == null) {
             return "Error: LLM not initialized. Please ensure model file is pushed to device via adb."
         }
+        
+        // Format prompt for Gemma
+        val formattedPrompt = formatPrompt(prompt)
 
         return withContext(Dispatchers.IO) {
             try {
                 println("🤖 MediaPipeLLMEngine: Generating response...")
-                println("   Prompt length: ${prompt.length} characters")
-                println("   Prompt preview: ${prompt.take(100)}...")
-
+                println("   Original prompt length: ${prompt.length}")
+                
                 val startTime = System.currentTimeMillis()
 
                 // Generate response synchronously
-                val response = llmInference!!.generateResponse(prompt)
+                val response = llmInference!!.generateResponse(formattedPrompt)
 
                 val elapsedTime = System.currentTimeMillis() - startTime
                 val tokensGenerated = response.length / 4  // Rough estimate
@@ -114,8 +131,12 @@ class MediaPipeLLMEngine(private val context: Context) : LLMEngine {
 
                 println("✅ Response generated in ${elapsedTime}ms (~${String.format("%.1f", tokensPerSec)} tok/s)")
                 println("   Response: ${response.take(100)}...")
-
+                
+                // Clean up response if it contains special tokens
                 response.trim()
+                    .replace("<start_of_turn>model", "")
+                    .replace("<end_of_turn>", "")
+                    .trim()
 
             } catch (e: Exception) {
                 println("❌ Error generating content: ${e.message}")
@@ -123,6 +144,17 @@ class MediaPipeLLMEngine(private val context: Context) : LLMEngine {
                 "Error: ${e.message}"
             }
         }
+    }
+    
+    /**
+     * Format prompt for Gemma 3
+     * Required format:
+     * <start_of_turn>user
+     * [prompt]<end_of_turn>
+     * <start_of_turn>model
+     */
+    private fun formatPrompt(prompt: String): String {
+        return "<start_of_turn>user\n$prompt<end_of_turn>\n<start_of_turn>model\n"
     }
 
     override fun isReady(): Boolean = isInitialized && llmInference != null
@@ -194,9 +226,10 @@ class MediaPipeLLMEngine(private val context: Context) : LLMEngine {
      * Clean up resources when done
      */
     fun destroy() {
-        llmInference?.close()
-        llmInference = null
-        isInitialized = false
-        println("🔄 MediaPipeLLMEngine destroyed")
+        // Only close if we're sure no one else is using it (for now, keep open in Singleton)
+        // llmInference?.close()
+        // llmInference = null
+        // isInitialized = false
+        // println("🔄 MediaPipeLLMEngine destroyed")
     }
 }

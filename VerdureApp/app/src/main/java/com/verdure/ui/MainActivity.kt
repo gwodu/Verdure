@@ -88,7 +88,8 @@ class MainActivity : AppCompatActivity() {
     private fun initializeAI() {
         lifecycleScope.launch {
             // Initialize MediaPipe engine with Gemma 3 1B 4-bit quantized
-            llmEngine = MediaPipeLLMEngine(applicationContext)
+            // Use Singleton instance for shared memory usage
+            llmEngine = MediaPipeLLMEngine.getInstance(applicationContext)
             val initialized = llmEngine.initialize()
 
             if (initialized) {

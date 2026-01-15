@@ -49,7 +49,8 @@ class NotificationSummarizationService : Service() {
             // Initialize LLM engine
             scope.launch {
                 Log.d(TAG, "Initializing LLM engine...")
-                llmEngine = MediaPipeLLMEngine(applicationContext)
+                // Use Singleton instance
+                llmEngine = MediaPipeLLMEngine.getInstance(applicationContext)
                 val success = llmEngine.initialize()
                 
                 if (success) {
