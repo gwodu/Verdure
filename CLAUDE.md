@@ -34,7 +34,7 @@ Key characteristics:
 Instead of relying on unavailable LLM APIs, Verdure focuses on practical, achievable intelligence:
 - Smart notification prioritization using semantic understanding + temporal reasoning
 - On-device processing using lightweight models or rule-based systems
-- On-device LLM: Gemma 3 1B (4-bit quantized) via Google MediaPipe
+- On-device LLM: Qwen 3 0.6B via Cactus SDK (model downloads on-device)
 
 ## Build System
 
@@ -272,11 +272,10 @@ User: "Remind me to call Mom when I get home"
 
 ### Technology Stack
 
-**LLM:** Gemma 3 1B (4-bit quantized) via Google MediaPipe
-- ~600-800 MB model size
-- Runs entirely on-device
-- No internet required
-- Official Google solution for on-device AI
+**LLM:** Qwen 3 0.6B via Cactus SDK
+- On-device model download at first run
+- Runs entirely on-device after download
+- Privacy-first, no cloud inference
 
 **Android APIs:** Tools interact directly with system
 - `AlarmManager` for reminders
@@ -288,15 +287,15 @@ User: "Remind me to call Mom when I get home"
 
 ## Key Dependencies
 
-- **Kotlin**: 1.9.22
-- **Android Gradle Plugin**: 8.2.0
+- **Kotlin**: 2.0.21
+- **Android Gradle Plugin**: 8.5.2
 - **AndroidX**: Core KTX, AppCompat, Material Design
 - **Coroutines**: 1.7.3 (for async operations)
-- **MediaPipe Tasks GenAI**: 0.10.27 (for on-device Gemma 3 1B inference)
+- **Cactus SDK**: 1.2.0-beta (for on-device Qwen 3 0.6B inference)
 
 **Deprecated:**
 - **AI Edge SDK**: 0.0.1-exp01 (non-functional on Pixel 8A)
-- **llama.cpp**: 3.0.0 (not Android-compatible, replaced by MediaPipe)
+- **llama.cpp**: 3.0.0 (not Android-compatible, replaced by Cactus)
 
 **Future additions:**
 - TensorFlow Lite (for sentence embeddings)
@@ -307,7 +306,7 @@ User: "Remind me to call Mom when I get home"
 - **Min SDK**: 31 (Android 12) - Required by AICore SDK (though not used in production)
 - **Target SDK**: 34 (Android 14)
 - **Compile SDK**: 34
-- **Java Version**: 17 (source/target compatibility)
+- **Java Version**: 21 (source/target compatibility)
 - **Gradle**: Uses system Java (avoid hardcoded paths for CI/CD compatibility)
 
 ## Important Notes
@@ -330,7 +329,7 @@ The app is in early prototype phase (version 1.0-prototype):
 - NotificationTool's `getRecentNotifications()` returns empty list (not yet implemented)
 - Tool routing is simple keyword matching, not AI-based
 - Only basic UI for testing, no production interface yet
-- MediaPipeLLMEngine implemented with Gemma 3 1B (requires model pushed via adb for testing)
+- CactusLLMEngine implemented with Qwen 3 0.6B (model downloads on-device at first run)
 
 ## Development Roadmap
 

@@ -17,7 +17,8 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.verdure.R
-import com.verdure.core.MediaPipeLLMEngine
+import com.cactus.CactusContextInitializer
+import com.verdure.core.CactusLLMEngine
 import com.verdure.core.VerdureAI
 import com.verdure.data.UserContextManager
 import com.verdure.services.VerdureNotificationListener
@@ -36,7 +37,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var chatScrollView: ScrollView
 
     // AI components
-    private lateinit var llmEngine: MediaPipeLLMEngine
+    private lateinit var llmEngine: CactusLLMEngine
     private lateinit var verdureAI: VerdureAI
 
     companion object {
@@ -45,6 +46,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CactusContextInitializer.initialize(this)
         setContentView(R.layout.activity_main)
 
         statusText = findViewById(R.id.statusText)
@@ -87,9 +89,9 @@ class MainActivity : AppCompatActivity() {
      */
     private fun initializeAI() {
         lifecycleScope.launch {
-            // Initialize MediaPipe engine with Gemma 3 1B 4-bit quantized
+            // Initialize Cactus engine (Qwen 3 0.6B)
             // Use Singleton instance for shared memory usage
-            llmEngine = MediaPipeLLMEngine.getInstance(applicationContext)
+            llmEngine = CactusLLMEngine.getInstance(applicationContext)
             val initialized = llmEngine.initialize()
 
             if (initialized) {

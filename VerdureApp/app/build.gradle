@@ -47,8 +47,6 @@ dependencies {
     // AI Edge SDK for Gemini Nano (DEPRECATED - non-functional on Pixel 8A)
     // implementation 'com.google.ai.edge.aicore:aicore:0.0.1-exp01'
 
-    // MediaPipe LLM Inference for on-device AI
-    // Supports Gemma models with 4-bit quantization
-    // Official Google solution for Android LLM inference
-    implementation 'com.google.mediapipe:tasks-genai:0.10.27'
+    // Cactus on-device LLM SDK
+    implementation 'com.cactuscompute:cactus:1.2.0-beta'
 }

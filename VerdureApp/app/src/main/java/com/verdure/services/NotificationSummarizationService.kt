@@ -5,7 +5,8 @@ import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
-import com.verdure.core.MediaPipeLLMEngine
+import com.cactus.CactusContextInitializer
+import com.verdure.core.CactusLLMEngine
 import com.verdure.data.NotificationData
 import com.verdure.data.NotificationFilter
 import com.verdure.data.NotificationSummaryStore
@@ -30,7 +31,7 @@ import kotlinx.coroutines.runBlocking
 class NotificationSummarizationService : Service() {
     
     private val scope = CoroutineScope(Dispatchers.Default + Job())
-    private lateinit var llmEngine: MediaPipeLLMEngine
+    private lateinit var llmEngine: CactusLLMEngine
     private lateinit var notificationFilter: NotificationFilter
     private lateinit var summaryStore: NotificationSummaryStore
     
@@ -44,13 +45,15 @@ class NotificationSummarizationService : Service() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service created")
-        
+
         try {
+            CactusContextInitializer.initialize(this)
+
             // Initialize LLM engine
             scope.launch {
                 Log.d(TAG, "Initializing LLM engine...")
                 // Use Singleton instance
-                llmEngine = MediaPipeLLMEngine.getInstance(applicationContext)
+                llmEngine = CactusLLMEngine.getInstance(applicationContext)
                 val success = llmEngine.initialize()
                 
                 if (success) {
