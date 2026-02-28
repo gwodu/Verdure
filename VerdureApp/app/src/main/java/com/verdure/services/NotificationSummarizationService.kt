@@ -14,6 +14,7 @@ import com.verdure.data.UserContextManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -35,11 +36,14 @@ class NotificationSummarizationService : Service() {
     private lateinit var notificationFilter: NotificationFilter
     private lateinit var summaryStore: NotificationSummaryStore
     
+    private var processingJob: Job? = null
+    
     companion object {
         private const val TAG = "NotifSummarizationSvc"
         private const val CRITICAL_THRESHOLD = 15  // Score threshold for immediate LLM processing
         private const val MAX_NOTIFICATIONS_TO_SUMMARIZE = 5  // Top N critical notifications
         private const val RAW_NOTIFICATION_MAX_LENGTH = 100  // Truncation length for fallback
+        private const val DEBOUNCE_DELAY_MS = 3000L  // Wait 3 seconds to batch multiple notifications
     }
     
     override fun onCreate() {
@@ -99,11 +103,19 @@ class NotificationSummarizationService : Service() {
     
     /**
      * Start monitoring notifications from VerdureNotificationListener.
+     * Uses debouncing to batch multiple rapid notifications together.
      */
     private fun startMonitoring() {
         scope.launch {
             VerdureNotificationListener.notifications.collect { allNotifications ->
-                processNotifications(allNotifications)
+                // Cancel any pending processing job
+                processingJob?.cancel()
+                
+                // Schedule new processing with debounce delay
+                processingJob = launch {
+                    delay(DEBOUNCE_DELAY_MS)
+                    processNotifications(allNotifications)
+                }
             }
         }
     }
