@@ -58,6 +58,10 @@ class MainActivity : AppCompatActivity() {
         chatHistoryContainer = findViewById(R.id.chatHistoryContainer)
         chatScrollView = findViewById(R.id.chatScrollView)
 
+        // Prevent sends until async AI initialization completes.
+        sendButton.isEnabled = false
+        chatInput.isEnabled = false
+
         // Initialize AI components
         initializeAI()
 
@@ -127,6 +131,11 @@ class MainActivity : AppCompatActivity() {
      * Send user message and get V's response
      */
     private fun sendMessage() {
+        if (!::verdureAI.isInitialized) {
+            addMessageToChat("System", "AI is still initializing. Please wait a few seconds and try again.")
+            return
+        }
+
         val userMessage = chatInput.text.toString().trim()
         if (userMessage.isEmpty()) return
 

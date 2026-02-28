@@ -1254,3 +1254,6 @@ Refactored the core AI engine to resolve memory and compatibility issues.
 **Decision:** Auto-dismiss clearable notifications after Verdure processes them (chat tool + background summarization).
 **Why:** Notification access is useful, but leaving processed notifications in the tray keeps the user overloaded.
 **Tradeoff:** Less tray clutter and faster signal-to-noise vs potentially dismissing items before manual review (mitigated by only clearing notifications Android marks as clearable and keeping ongoing/system items untouched).
+**Decision:** Gate chat interactions until `VerdureAI` initialization completes.
+**Why:** `initializeAI()` runs asynchronously, so users could tap Send before `verdureAI` was assigned, triggering `lateinit property verdureAI has not been initialized` in `MainActivity.sendMessage()`.
+**Tradeoff:** Slight startup delay before chat becomes interactive vs elimination of an app-crashing race condition.
