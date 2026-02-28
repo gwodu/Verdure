@@ -403,7 +403,7 @@ Now extract from the user's message:
             return appPrioritizationTool.execute(
                 mapOf(
                     "action" to action,
-                    "app_name" to result.appName
+                    "app_name" to result.app_name
                 )
             )
         } else {
