@@ -1,13 +1,16 @@
 package com.verdure.widget
 
+import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import android.widget.RemoteViews
 import com.verdure.R
 import com.verdure.data.NotificationSummaryStore
+import com.verdure.ui.MainActivity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -22,6 +25,7 @@ class VerdureWidgetProvider : AppWidgetProvider() {
     
     companion object {
         private const val TAG = "VerdureWidget"
+        private const val ACTION_REFRESH = "com.verdure.widget.ACTION_REFRESH"
         
         /**
          * Manually trigger widget update from external components
@@ -37,6 +41,19 @@ class VerdureWidgetProvider : AppWidgetProvider() {
                 provider.onUpdate(context, appWidgetManager, widgetIds)
                 Log.d(TAG, "Manually updated ${widgetIds.size} widget(s)")
             }
+        }
+    }
+    
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        
+        if (intent.action == ACTION_REFRESH) {
+            Log.d(TAG, "Refresh action received")
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val widgetIds = appWidgetManager.getAppWidgetIds(
+                ComponentName(context, VerdureWidgetProvider::class.java)
+            )
+            onUpdate(context, appWidgetManager, widgetIds)
         }
     }
     
@@ -90,6 +107,31 @@ class VerdureWidgetProvider : AppWidgetProvider() {
             
             Log.d(TAG, "Widget updated with empty state")
         }
+        
+        // Add click handling to open MainActivity
+        val openAppIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val openAppPendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent)
+        
+        // Add refresh button click handling
+        val refreshIntent = Intent(context, VerdureWidgetProvider::class.java).apply {
+            action = ACTION_REFRESH
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(appWidgetId))
+        }
+        val refreshPendingIntent = PendingIntent.getBroadcast(
+            context,
+            appWidgetId,
+            refreshIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.widget_refresh, refreshPendingIntent)
         
         // Update the widget
         appWidgetManager.updateAppWidget(appWidgetId, views)
