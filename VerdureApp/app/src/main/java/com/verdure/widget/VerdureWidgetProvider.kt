@@ -72,6 +72,18 @@ class VerdureWidgetProvider : AppWidgetProvider() {
     
     override fun onEnabled(context: Context) {
         Log.d(TAG, "First widget added")
+        
+        // Ensure NotificationSummarizationService is running
+        try {
+            val serviceIntent = Intent(context, com.verdure.services.NotificationSummarizationService::class.java)
+            context.startService(serviceIntent)
+            Log.d(TAG, "Started NotificationSummarizationService")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start NotificationSummarizationService", e)
+        }
+        
+        // Trigger immediate update when widget is first added
+        updateAllWidgets(context)
     }
     
     override fun onDisabled(context: Context) {
