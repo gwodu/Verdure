@@ -1,7 +1,9 @@
 package com.verdure.services
 
 import android.app.Notification
+import android.app.NotificationManager
 import android.content.pm.PackageManager
+import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -121,8 +123,19 @@ class VerdureNotificationListener : NotificationListenerService() {
             // Extract metadata for enhanced scoring
             val hasActions = notification.actions?.isNotEmpty() == true
             val hasImage = extras.containsKey(Notification.EXTRA_PICTURE) ||
-                          extras.containsKey(Notification.EXTRA_LARGE_ICON)
+                          notification.getLargeIcon() != null
             val isOngoing = (notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+            
+            // Get notification importance (replaces deprecated priority field)
+            val importance = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val notificationManager = getSystemService(NotificationManager::class.java)
+                notification.channelId?.let { channelId ->
+                    notificationManager?.getNotificationChannel(channelId)?.importance
+                } ?: NotificationManager.IMPORTANCE_DEFAULT
+            } else {
+                @Suppress("DEPRECATION")
+                notification.priority
+            }
 
             return NotificationData(
                 id = nextId++,
@@ -132,7 +145,7 @@ class VerdureNotificationListener : NotificationListenerService() {
                 text = text,
                 timestamp = sbn.postTime,
                 category = notification.category,
-                priority = notification.priority,
+                priority = importance,
                 contentIntent = contentIntent,  // Capture the intent to open the app
 
                 // Metadata for enhanced scoring

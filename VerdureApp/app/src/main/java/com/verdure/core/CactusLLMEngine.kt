@@ -49,23 +49,14 @@ class CactusLLMEngine private constructor(private val context: Context) : LLMEng
 
                 val lm = CactusLM()
 
-                // Download and initialize the model
-                val downloaded = lm.downloadModel(MODEL_SLUG)
-                if (!downloaded) {
-                    isInitialized = false
-                    return@withContext false
-                }
-
-                val initialized = lm.initializeModel(
+                // Download and initialize the model (throws exception on failure)
+                lm.downloadModel(MODEL_SLUG)
+                lm.initializeModel(
                     CactusInitParams(
                         model = MODEL_SLUG,
                         contextSize = CONTEXT_SIZE
                     )
                 )
-                if (!initialized) {
-                    isInitialized = false
-                    return@withContext false
-                }
 
                 cactusLM = lm
                 isInitialized = true
