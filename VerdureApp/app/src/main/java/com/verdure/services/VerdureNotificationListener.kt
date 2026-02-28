@@ -8,6 +8,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.verdure.data.NotificationData
+import com.verdure.data.NotificationSummaryStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,7 +59,54 @@ class VerdureNotificationListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         super.onNotificationRemoved(sbn)
-        Log.d(TAG, "Notification removed: ${sbn.packageName}")
+        
+        val packageName = sbn.packageName
+        val postTime = sbn.postTime
+        
+        // Find the notification ID that matches this removal
+        var removedNotifId: Int? = null
+        
+        // Remove from internal state
+        val currentList = _notifications.value.toMutableList()
+        val iterator = currentList.iterator()
+        while (iterator.hasNext()) {
+            val notif = iterator.next()
+            if (notif.packageName == packageName && notif.timestamp == postTime) {
+                removedNotifId = notif.id
+                iterator.remove()
+            }
+        }
+        
+        if (removedNotifId != null) {
+            _notifications.value = currentList
+            Log.d(TAG, "Notification removed from state: $packageName (${currentList.size} remaining)")
+            
+            // Check if removed notification was in widget summary
+            checkAndUpdateWidgetSummary(removedNotifId)
+        } else {
+            Log.d(TAG, "Notification removed (not in state): $packageName")
+        }
+    }
+    
+    /**
+     * Check if the removed notification was in the widget summary.
+     * If so, clear the summary and update the widget to show fresh state.
+     */
+    private fun checkAndUpdateWidgetSummary(removedNotifId: Int) {
+        try {
+            val summaryStore = NotificationSummaryStore(applicationContext)
+            val summary = summaryStore.getLatestSummary()
+            
+            if (summary != null && summary.notificationIds.contains(removedNotifId)) {
+                Log.d(TAG, "Removed notification was in widget summary - clearing stale summary")
+                summaryStore.clearSummaries()
+                
+                // Trigger widget update to reflect cleared notifications
+                com.verdure.widget.VerdureWidgetProvider.updateAllWidgets(applicationContext)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update widget after notification removal", e)
+        }
     }
 
     /**
