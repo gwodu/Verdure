@@ -92,10 +92,12 @@ class InstalledAppsManager(private val context: Context) {
     /**
      * Decide if an app should be included in the prioritization UI
      *
-     * Filters:
-     * - System apps (unless they're useful like Phone, Messages, Calendar)
-     * - Non-launchable apps
-     * - Our own app (Verdure)
+     * Simple approach: Include ANY app with a launcher icon
+     * This catches all user-facing apps (both system and user-installed)
+     *
+     * Filters out:
+     * - Background services (no launcher)
+     * - Verdure itself
      */
     private fun shouldIncludeApp(appInfo: ApplicationInfo): Boolean {
         val packageManager = context.packageManager
@@ -105,39 +107,8 @@ class InstalledAppsManager(private val context: Context) {
             return false
         }
 
-        // Include if it has a launcher intent (user-facing app)
-        val hasLauncher = packageManager.getLaunchIntentForPackage(appInfo.packageName) != null
-
-        // System apps: include only if they have a launcher (excludes background services)
-        val isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-        if (isSystemApp) {
-            return hasLauncher && isUsefulSystemApp(appInfo.packageName)
-        }
-
-        // Include all user-installed apps
-        return hasLauncher
-    }
-
-    /**
-     * Whitelist of system apps that should be included
-     * (Phone, Messages, Calendar, etc.)
-     */
-    private fun isUsefulSystemApp(packageName: String): Boolean {
-        val usefulSystemApps = setOf(
-            "com.google.android.dialer",
-            "com.google.android.apps.messaging",
-            "com.android.messaging",
-            "com.google.android.calendar",
-            "com.android.calendar",
-            "com.google.android.gm", // Gmail
-            "com.android.chrome",
-            "com.google.android.apps.maps",
-            "com.android.vending" // Play Store
-        )
-
-        return packageName in usefulSystemApps || 
-               packageName.contains("dialer", ignoreCase = true) ||
-               packageName.contains("messaging", ignoreCase = true) ||
-               packageName.contains("calendar", ignoreCase = true)
+        // Include ANY app with a launcher intent (system or user-installed)
+        // This is the key: we trust that apps with launcher icons are user-facing
+        return packageManager.getLaunchIntentForPackage(appInfo.packageName) != null
     }
 }

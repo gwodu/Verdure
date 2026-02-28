@@ -1257,3 +1257,200 @@ Refactored the core AI engine to resolve memory and compatibility issues.
 **Decision:** Gate chat interactions until `VerdureAI` initialization completes.
 **Why:** `initializeAI()` runs asynchronously, so users could tap Send before `verdureAI` was assigned, triggering `lateinit property verdureAI has not been initialized` in `MainActivity.sendMessage()`.
 **Tradeoff:** Slight startup delay before chat becomes interactive vs elimination of an app-crashing race condition.
+
+---
+
+## Session 15 - February 28, 2026
+
+### What Was Done
+- **Implemented drag-and-drop app prioritization UI**
+  - Created `AppPriorityActivity` with RecyclerView + ItemTouchHelper for drag-and-drop
+  - Built `InstalledAppsManager` to discover all user-facing apps (filters system apps)
+  - Added settings icon to MainActivity header → opens app prioritization screen
+  - Visual design: app icons, priority badges (top 3 highlighted in green), drag handles
+  
+- **Extended priority scoring system**
+  - Added `customAppOrder: List<String>` to `PriorityRules` (stores package names in order)
+  - Updated `NotificationFilter.scoreByApp()` to prioritize custom order over tier defaults
+  - Position-based scoring: 1st app = +10, 2nd = +8, 3rd = +6, then decay to +2
+  - Custom order takes precedence over all other app scoring rules
+
+- **Synced chat with UI**
+  - Created `AppPrioritizationTool` to handle chat commands ("prioritize Discord")
+  - Added `app_prioritization` intent to VerdureAI (4th intent type)
+  - Both chat and UI update same data source (`UserContext.priorityRules.customAppOrder`)
+  - When user says "prioritize Discord" → moves Discord to position 0 → UI reflects change
+  - When user drags Discord to top in UI → chat queries will show Discord's high priority
+
+### Why
+
+**Problem:** Users need intuitive control over app priority beyond keywords/categories
+- Current system: tier-based (communication apps +3, social +1, etc.)
+- Limitation: Can't express "I care about Discord more than Slack"
+- User request: Visual drag-and-drop interface for app ordering
+
+**Solution:** Dual interface for prioritization
+1. **Visual UI:** Drag-and-drop list of all installed apps (explicit ordering)
+2. **Chat interface:** "prioritize Discord" moves app to top (implicit ordering)
+3. **Shared data:** Both update `customAppOrder` in UserContext
+
+### Key Decisions
+
+**Decision #1: Position-based scoring (not binary boost)**
+**Why:** Top 3 apps deserve significantly higher scores than #4-10
+**Implementation:** 
+- Position 0 (first) = +10 points (highest app score possible)
+- Position 1 = +8, Position 2 = +6 (top 3 get gradient boost)
+- Position 3+ = +5 to +2 (decay for remaining apps)
+**Tradeoff:** More complex scoring vs clear visual feedback (top 3 = green badge)
+
+**Decision #2: Package name matching (not fuzzy app name)**
+**Why:** Precise matching prevents false positives (e.g., "Messages" vs "Facebook Messenger")
+**Tradeoff:** Less flexible vs accurate (acceptable - users drag actual apps, not names)
+
+**Decision #3: Custom order overrides all tier scoring**
+**Why:** User's explicit drag-and-drop intent should be highest signal
+**Implementation:** If `customAppOrder` is non-empty, check it first before tier defaults
+**Tradeoff:** Users must manually order apps vs automatic tier classification (acceptable - users asked for control)
+
+**Decision #4: Separate activity (not dialog/bottom sheet)**
+**Why:** Full-screen needed for potentially 50-100 apps, easier drag-and-drop UX
+**Tradeoff:** Navigation overhead vs usable interface at scale (acceptable)
+
+**Decision #5: No search/filter in app list (MVP)**
+**Why:** Keep initial implementation simple, alphabetical sorting sufficient for MVP
+**Future:** Add search bar if users have 100+ apps and scrolling becomes tedious
+**Tradeoff:** Scrolling required for large app lists vs simpler initial implementation
+
+### Architecture Changes
+
+**New Components:**
+- `AppPriorityActivity` - Settings screen with drag-and-drop RecyclerView
+- `AppPriorityAdapter` - RecyclerView adapter supporting item moves
+- `AppPrioritizationTool` - Tool for chat-based app prioritization
+- `InstalledAppsManager` - Discovers and validates installed apps
+
+**Data Layer:**
+- `UserContext.priorityRules.customAppOrder` - List of package names in priority order
+- `UserContextManager.updateAppPriorityOrder()` - Replace entire order (from UI)
+- `UserContextManager.moveAppPriority()` - Move single app (from chat)
+
+**Intent Flow:**
+```
+User: "prioritize Discord"
+→ VerdureAI detects: app_prioritization intent
+→ Extracts: {app_name: "Discord", action: "prioritize"}
+→ AppPrioritizationTool.execute(prioritize_app, "Discord")
+→ InstalledAppsManager finds package: "com.discord"
+→ UserContextManager.moveAppPriority("com.discord", 0)
+→ customAppOrder updated: ["com.discord", ...]
+→ NotificationFilter sees Discord at position 0 → +10 score boost
+→ Response: "✓ Discord is now your top priority app"
+```
+
+**UI Flow:**
+```
+User taps settings icon → AppPriorityActivity
+→ Loads all installed apps via InstalledAppsManager
+→ Applies current customAppOrder (if exists)
+→ User drags Instagram to top
+→ Tap "Save Changes"
+→ UserContextManager.updateAppPriorityOrder([...])
+→ Future Instagram notifications get +10 score
+```
+
+### Files Created
+- `InstalledAppsManager.kt` - App discovery and validation (122 lines)
+- `AppPriorityActivity.kt` - Settings UI with drag-and-drop (141 lines)
+- `AppPriorityAdapter.kt` - RecyclerView adapter for app list (93 lines)
+- `AppPrioritizationTool.kt` - Chat-based prioritization tool (94 lines)
+- `activity_app_priority.xml` - Settings screen layout
+- `item_app_priority.xml` - Individual app item layout
+- `app_priority_item_background.xml` - Card background drawable
+- `badge_high_priority.xml` - Green badge for top 3 apps
+- `badge_normal_priority.xml` - Gray badge for other apps
+- `ic_drag_handle.xml` - Drag handle icon
+- `ic_settings.xml` - Settings icon for MainActivity
+
+### Files Modified
+- `UserContext.kt` - Added `customAppOrder` field to PriorityRules
+- `UserContextManager.kt` - Added `updateAppPriorityOrder()` and `moveAppPriority()` methods
+- `NotificationFilter.kt` - Updated `scoreByApp()` to check customAppOrder first
+- `VerdureAI.kt` - Added `app_prioritization` intent + handler methods
+- `MainActivity.kt` - Added settings button + click handler
+- `activity_main.xml` - Added settings icon to header
+- `AndroidManifest.xml` - Registered AppPriorityActivity
+- `build.gradle` - Added RecyclerView dependency
+
+### Testing Checklist
+
+**UI Testing:**
+1. ✅ Settings icon appears in MainActivity header
+2. ⚠️ Tapping settings opens AppPriorityActivity (needs device test)
+3. ⚠️ All installed apps load in RecyclerView (needs device test)
+4. ⚠️ Drag-and-drop reordering works smoothly (needs device test)
+5. ⚠️ Top 3 apps show green badge, others gray (needs device test)
+6. ⚠️ Save button enables when changes made (needs device test)
+7. ⚠️ Save persists ordering across app restarts (needs device test)
+
+**Scoring Integration:**
+1. ⚠️ Custom order affects notification scores (needs device test)
+2. ⚠️ Position 0 app gets +10 boost (verify in logs)
+3. ⚠️ Apps not in customAppOrder fall back to tier scoring
+
+**Chat Integration:**
+1. ⚠️ "prioritize Discord" moves Discord to position 0 (needs device test)
+2. ⚠️ Chat updates reflected in UI when reopened (needs device test)
+3. ⚠️ Invalid app names handled gracefully ("App not found")
+
+### Current Status
+
+✅ **Complete:**
+- Full drag-and-drop UI implementation
+- Chat-based prioritization synced with UI
+- Position-based scoring system
+- Installed apps discovery and validation
+
+🔧 **Ready for Testing:**
+- Drag-and-drop functionality on device
+- Custom order scoring integration
+- Chat/UI bidirectional sync
+- App validation and error handling
+
+⚠️ **Known Limitations:**
+- No search/filter in app list (MVP - alphabetical only)
+- Can't remove apps from custom order via UI (only reorder)
+- No visual indication of current score impact in UI
+
+### Future Enhancements
+
+**1. App list search/filter**
+- Users with 50+ apps need search
+- Filter by category (communication, social, productivity)
+- Filter by recently notifying apps
+
+**2. Score preview in UI**
+- Show current score next to each app
+- "Position 1 → +10 points"
+- Help users understand impact of ordering
+
+**3. Bulk actions**
+- "Reset to defaults" button
+- "Auto-sort by notification frequency"
+- "Move all social apps to bottom"
+
+**4. Category grouping**
+- Section headers: Communication, Social, Productivity
+- Drag within/between categories
+- Collapsible sections
+
+**5. Learning from behavior**
+- Track which notifications user opens
+- Suggest reordering based on usage patterns
+- "You often ignore Instagram, move to bottom?"
+
+### Commit
+
+**Branch:** `cursor/app-prioritization-interface-faad`
+**Commit:** `33002f7`
+**Status:** Pushed, awaiting GitHub Actions build
