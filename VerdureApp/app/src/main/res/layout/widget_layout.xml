@@ -45,7 +45,8 @@
             android:textColor="@color/accent_primary"
             android:gravity="center"
             android:background="@android:color/transparent"
-            android:clickable="true" />
+            android:clickable="true"
+            android:contentDescription="Refresh notifications" />
     </LinearLayout>
 
     <!-- Summary Content -->
@@ -60,7 +61,8 @@
         android:lineSpacingMultiplier="1.3"
         android:gravity="top"
         android:maxLines="6"
-        android:ellipsize="end" />
+        android:ellipsize="end"
+        android:contentDescription="Critical notifications summary" />
 
     <!-- Timestamp -->
     <TextView
