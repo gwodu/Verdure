@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="12dp"
+    android:background="@drawable/app_priority_item_background"
+    android:layout_marginStart="8dp"
+    android:layout_marginEnd="8dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginBottom="4dp"
+    android:gravity="center_vertical">
+
+    <!-- Drag Handle -->
+    <ImageView
+        android:id="@+id/dragHandle"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_drag_handle"
+        android:contentDescription="Drag to reorder"
+        android:layout_marginEnd="12dp"
+        android:alpha="0.6"/>
+
+    <!-- App Icon -->
+    <ImageView
+        android:id="@+id/appIcon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:contentDescription="App icon"
+        android:layout_marginEnd="12dp"/>
+
+    <!-- App Name -->
+    <TextView
+        android:id="@+id/appName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="App Name"
+        android:textSize="16sp"
+        android:textColor="@color/text_primary"
+        android:maxLines="1"
+        android:ellipsize="end"/>
+
+    <!-- Priority Badge -->
+    <TextView
+        android:id="@+id/priorityBadge"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:text="1"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:background="@drawable/badge_high_priority"
+        android:gravity="center"
+        android:layout_marginStart="8dp"/>
+
+</LinearLayout>

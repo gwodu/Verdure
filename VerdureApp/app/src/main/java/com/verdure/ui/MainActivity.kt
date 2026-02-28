@@ -20,8 +20,10 @@ import com.verdure.R
 import com.cactus.CactusContextInitializer
 import com.verdure.core.CactusLLMEngine
 import com.verdure.core.VerdureAI
+import com.verdure.data.InstalledAppsManager
 import com.verdure.data.UserContextManager
 import com.verdure.services.VerdureNotificationListener
+import com.verdure.tools.AppPrioritizationTool
 import com.verdure.tools.NotificationTool
 import kotlinx.coroutines.launch
 
@@ -29,6 +31,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
     private lateinit var requestPermissionButton: Button
+    private lateinit var settingsButton: android.widget.ImageView
 
     // Chat components
     private lateinit var chatInput: EditText
@@ -51,6 +54,7 @@ class MainActivity : AppCompatActivity() {
 
         statusText = findViewById(R.id.statusText)
         requestPermissionButton = findViewById(R.id.requestPermissionButton)
+        settingsButton = findViewById(R.id.settingsButton)
 
         // Chat components
         chatInput = findViewById(R.id.chatInput)
@@ -70,6 +74,11 @@ class MainActivity : AppCompatActivity() {
 
         requestPermissionButton.setOnClickListener {
             requestAllPermissions()
+        }
+
+        // Settings button handler
+        settingsButton.setOnClickListener {
+            openAppPrioritySettings()
         }
 
         // Chat send button handler
@@ -102,11 +111,15 @@ class MainActivity : AppCompatActivity() {
                 // Initialize user context manager
                 val contextManager = UserContextManager.getInstance(applicationContext)
 
+                // Initialize installed apps manager
+                val appsManager = InstalledAppsManager(applicationContext)
+
                 // Create VerdureAI orchestrator with context
                 verdureAI = VerdureAI(llmEngine, contextManager)
 
-                // Register tools (NotificationTool needs contextManager for heuristic filtering)
+                // Register tools
                 verdureAI.registerTool(NotificationTool(llmEngine, contextManager))
+                verdureAI.registerTool(AppPrioritizationTool(contextManager, appsManager))
 
                 println("✅ Verdure AI initialized successfully")
                 println("   Tools registered: ${verdureAI.getAvailableTools().size}")
@@ -305,6 +318,14 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == CALENDAR_PERMISSION_REQUEST) {
             checkPermissionsAndSetup()
         }
+    }
+
+    /**
+     * Open app priority settings
+     */
+    private fun openAppPrioritySettings() {
+        val intent = Intent(this, AppPriorityActivity::class.java)
+        startActivity(intent)
     }
 
     /**
