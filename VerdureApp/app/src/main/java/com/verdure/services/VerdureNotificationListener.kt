@@ -66,7 +66,7 @@ class VerdureNotificationListener : NotificationListenerService() {
         // Find the notification ID that matches this removal
         var removedNotifId: Int? = null
         
-        // Remove from internal state
+        // Get current list
         val currentList = _notifications.value.toMutableList()
         val iterator = currentList.iterator()
         while (iterator.hasNext()) {
@@ -78,34 +78,45 @@ class VerdureNotificationListener : NotificationListenerService() {
         }
         
         if (removedNotifId != null) {
-            _notifications.value = currentList
-            Log.d(TAG, "Notification removed from state: $packageName (${currentList.size} remaining)")
+            Log.d(TAG, "Notification removed from state: $packageName")
             
-            // Check if removed notification was in widget summary
-            checkAndUpdateWidgetSummary(removedNotifId)
+            // Clear summary BEFORE updating StateFlow to avoid race condition
+            // This ensures NotificationSummarizationService sees cleared tracking when it processes
+            val summaryCleared = checkAndClearStaleSummary(removedNotifId)
+            
+            // Now update StateFlow (triggers service re-evaluation)
+            _notifications.value = currentList
+            Log.d(TAG, "StateFlow updated: ${currentList.size} notifications remaining")
+            
+            // If summary was cleared but no StateFlow change triggers service,
+            // manually update widget to show cleared state
+            if (summaryCleared && currentList.isEmpty()) {
+                com.verdure.widget.VerdureWidgetProvider.updateAllWidgets(applicationContext)
+            }
         } else {
             Log.d(TAG, "Notification removed (not in state): $packageName")
         }
     }
     
     /**
-     * Check if the removed notification was in the widget summary.
-     * If so, clear the summary and update the widget to show fresh state.
+     * Check if the removed notification was in the widget summary and clear if needed.
+     * Returns true if summary was cleared.
      */
-    private fun checkAndUpdateWidgetSummary(removedNotifId: Int) {
-        try {
+    private fun checkAndClearStaleSummary(removedNotifId: Int): Boolean {
+        return try {
             val summaryStore = NotificationSummaryStore(applicationContext)
             val summary = summaryStore.getLatestSummary()
             
             if (summary != null && summary.notificationIds.contains(removedNotifId)) {
-                Log.d(TAG, "Removed notification was in widget summary - clearing stale summary")
+                Log.d(TAG, "Removed notification was in widget summary - clearing for re-evaluation")
                 summaryStore.clearSummaries()
-                
-                // Trigger widget update to reflect cleared notifications
-                com.verdure.widget.VerdureWidgetProvider.updateAllWidgets(applicationContext)
+                true
+            } else {
+                false
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to update widget after notification removal", e)
+            Log.e(TAG, "Failed to check/clear summary after notification removal", e)
+            false
         }
     }
 
