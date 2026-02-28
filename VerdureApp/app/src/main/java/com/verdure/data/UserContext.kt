@@ -44,7 +44,12 @@ data class PriorityRules(
     val senders: List<String> = emptyList(),
 
     // Important contacts/people (names, not emails)
-    val contacts: List<String> = emptyList()
+    val contacts: List<String> = emptyList(),
+
+    // Custom app priority order (user-draggable in settings)
+    // First app = highest priority (score boost), last app = lowest
+    // Empty list = use default tier-based scoring
+    val customAppOrder: List<String> = emptyList()
 )
 
 /**

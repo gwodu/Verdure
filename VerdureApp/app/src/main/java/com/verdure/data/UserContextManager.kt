@@ -126,6 +126,50 @@ class UserContextManager private constructor(private val context: Context) {
         }
     }
 
+    /**
+     * Update custom app priority order (from drag-and-drop UI)
+     * This replaces the entire ordering, not a delta change
+     *
+     * @param orderedAppPackages List of package names in priority order (first = highest)
+     * @return The updated UserContext
+     */
+    suspend fun updateAppPriorityOrder(orderedAppPackages: List<String>): UserContext {
+        return updateContext { current ->
+            current.copy(
+                priorityRules = current.priorityRules.copy(
+                    customAppOrder = orderedAppPackages
+                )
+            )
+        }
+    }
+
+    /**
+     * Move an app to a specific priority position
+     * Used when chat-based prioritization ("prioritize Discord") needs to update UI order
+     *
+     * @param packageName The app package name to move
+     * @param toIndex The target index (0 = highest priority)
+     * @return The updated UserContext
+     */
+    suspend fun moveAppPriority(packageName: String, toIndex: Int): UserContext {
+        return updateContext { current ->
+            val currentOrder = current.priorityRules.customAppOrder.toMutableList()
+            
+            // Remove app from current position if exists
+            currentOrder.remove(packageName)
+            
+            // Insert at new position (bounded by list size)
+            val insertIndex = toIndex.coerceIn(0, currentOrder.size)
+            currentOrder.add(insertIndex, packageName)
+            
+            current.copy(
+                priorityRules = current.priorityRules.copy(
+                    customAppOrder = currentOrder
+                )
+            )
+        }
+    }
+
     // Internal helpers (must be called within mutex lock)
 
     private fun loadContextInternal(): UserContext {

@@ -41,7 +41,7 @@ class NotificationFilter(private val userContext: UserContext) {
         var score = 0
 
         // A. App-based scoring (granular tiers)
-        score += scoreByApp(notification.appName, userContext.priorityRules)
+        score += scoreByApp(notification.packageName, notification.appName, userContext.priorityRules)
 
         // B. User-learned priorities (from LLM updates)
         score += scoreByUserRules(notification, userContext.priorityRules)
@@ -80,11 +80,36 @@ class NotificationFilter(private val userContext: UserContext) {
 
     /**
      * A. App-based scoring with granular tiers
+     * 
+     * Priority: customAppOrder (user drag-and-drop) > tier-based defaults
      */
-    private fun scoreByApp(appName: String, rules: PriorityRules): Int {
+    private fun scoreByApp(packageName: String, appName: String, rules: PriorityRules): Int {
         val lowerAppName = appName.lowercase()
 
-        // User-specified high priority apps (highest precedence)
+        // **HIGHEST PRIORITY: User's custom drag-and-drop ordering**
+        // Uses exact package name matching for precision
+        if (rules.customAppOrder.isNotEmpty()) {
+            val position = rules.customAppOrder.indexOf(packageName)
+
+            if (position != -1) {
+                // Position 0 (first) = +10, position 1 = +8, position 2 = +6
+                // Then decay: 3 = +5, 4 = +4, 5 = +3, 6+ = +2
+                return when (position) {
+                    0 -> 10
+                    1 -> 8
+                    2 -> 6
+                    3 -> 5
+                    4 -> 4
+                    5 -> 3
+                    else -> 2
+                }
+            }
+            // If app not in customAppOrder, fall through to default scoring
+        }
+
+        // **DEFAULT TIER-BASED SCORING** (used if no custom order set)
+
+        // User-specified high priority apps (from chat)
         if (rules.highPriorityApps.any { lowerAppName.contains(it.lowercase()) }) {
             return 4
         }

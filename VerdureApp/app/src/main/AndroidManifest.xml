@@ -22,6 +22,14 @@
             </intent-filter>
         </activity>
 
+        <!-- App Priority Settings Activity -->
+        <activity
+            android:name=".ui.AppPriorityActivity"
+            android:exported="false"
+            android:label="App Priority"
+            android:parentActivityName=".ui.MainActivity"/>
+
+
         <!-- NotificationListenerService for capturing notifications -->
         <service
             android:name=".services.VerdureNotificationListener"

@@ -72,6 +72,7 @@ class VerdureAI(
         return when (intent) {
             "notification_query" -> handleNotificationQuery(userMessage)
             "notification_rerank" -> handleNotificationRerank(userMessage)
+            "app_prioritization" -> handleAppPrioritization(userMessage)
             "chat" -> handleChat(userMessage)
             else -> {
                 Log.w(TAG, "Unknown intent: $intent, falling back to chat")
@@ -97,21 +98,25 @@ Classify into ONE of these intents:
 1. notification_query - User asks about their notifications
    - Examples: "what's urgent?", "show me important messages", "what do I need to know?"
 
-2. notification_rerank - User wants to make some notifications more/less important
-   - Examples: "prioritize Discord", "make work emails more important", "ignore Instagram", "focus on messages from Sarah"
+2. notification_rerank - User wants to make some notifications more/less important by keywords/senders/domains
+   - Examples: "make work emails more important", "ignore spam", "focus on messages from Sarah"
 
-3. chat - User is having a conversation, asking follow-up questions, or chatting casually
+3. app_prioritization - User wants to prioritize or deprioritize specific APPS
+   - Examples: "prioritize Discord", "make Instagram less important", "focus on Slack"
+
+4. chat - User is having a conversation, asking follow-up questions, or chatting casually
    - Examples: "hi", "thanks", "what can you do?", "how does this work?"
 
 IMPORTANT:
 - If user greets you (hi, hello, hey) → chat
 - If user asks about their current priorities ("what are my priorities?") → chat
 - If user asks about notifications → notification_query
-- If user wants to change what's important → notification_rerank
+- If user wants to prioritize/deprioritize specific APPS → app_prioritization
+- If user wants to change keywords/senders/domains → notification_rerank
 
 Respond with ONLY this JSON format (no extra text):
 {
-  "intent": "notification_query OR notification_rerank OR chat",
+  "intent": "notification_query OR notification_rerank OR app_prioritization OR chat",
   "confidence": "high OR medium OR low"
 }
 
@@ -122,6 +127,9 @@ Output: {"intent": "notification_query", "confidence": "high"}
 
 Input: "prioritize emails from work"
 Output: {"intent": "notification_rerank", "confidence": "high"}
+
+Input: "prioritize Discord"
+Output: {"intent": "app_prioritization", "confidence": "high"}
 
 Input: "hi there"
 Output: {"intent": "chat", "confidence": "high"}
@@ -372,7 +380,96 @@ Now extract from the user's message:
         )
     }
 
-    // ----- PASS 2C: Chat -----
+    // ----- PASS 2C: App Prioritization -----
+
+    /**
+     * Handle app_prioritization intent
+     * Delegates to AppPrioritizationTool to update customAppOrder
+     */
+    private suspend fun handleAppPrioritization(userMessage: String): String {
+        val appPrioritizationTool = tools["app_prioritization"]
+            ?: return "App prioritization is not available right now."
+
+        // Extract app name and action (prioritize vs deprioritize)
+        val appPrioritizationPrompt = buildAppPrioritizationPrompt(userMessage)
+        val extractionJson = llmEngine.generateContent(appPrioritizationPrompt)
+        
+        Log.d(TAG, "Extracting app prioritization with LLM")
+        
+        val result = parseAppPrioritizationResponse(extractionJson)
+        
+        if (result != null) {
+            val action = if (result.action == "prioritize") "prioritize_app" else "deprioritize_app"
+            return appPrioritizationTool.execute(
+                mapOf(
+                    "action" to action,
+                    "app_name" to result.app_name
+                )
+            )
+        } else {
+            return "I couldn't understand which app you want to prioritize. Try saying \"prioritize Discord\" or \"make Instagram less important\"."
+        }
+    }
+
+    /**
+     * Build prompt for app prioritization extraction
+     */
+    private fun buildAppPrioritizationPrompt(userMessage: String): String {
+        return """
+You are V, a personal AI assistant.
+
+User message: "$userMessage"
+
+Extract the app name and action. Respond with ONLY valid JSON:
+
+{
+  "app_name": "[exact app name]",
+  "action": "prioritize OR deprioritize"
+}
+
+Examples:
+
+Input: "prioritize Discord"
+Output: {"app_name": "Discord", "action": "prioritize"}
+
+Input: "make Instagram less important"
+Output: {"app_name": "Instagram", "action": "deprioritize"}
+
+Input: "focus on Slack"
+Output: {"app_name": "Slack", "action": "prioritize"}
+
+Now extract from the user's message:
+        """.trimIndent()
+    }
+
+    @Serializable
+    private data class AppPrioritizationResponse(
+        val app_name: String,
+        val action: String
+    )
+
+    /**
+     * Parse app prioritization response
+     */
+    private fun parseAppPrioritizationResponse(json: String): AppPrioritizationResponse? {
+        return try {
+            val jsonStart = json.indexOf('{')
+            val jsonEnd = json.lastIndexOf('}') + 1
+
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                val jsonString = json.substring(jsonStart, jsonEnd)
+                this.json.decodeFromString<AppPrioritizationResponse>(jsonString)
+            } else {
+                Log.w(TAG, "No JSON found in app prioritization response")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse app prioritization response", e)
+            null
+        }
+    }
+
+    // ----- PASS 2D: Chat -----
 
     /**
      * Handle chat intent
