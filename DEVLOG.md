@@ -1246,3 +1246,11 @@ Refactored the core AI engine to resolve memory and compatibility issues.
 🔧 **Next Steps:**
 - Validate battery usage of background service
 - Explore richer widget interactions (e.g., open specific app)
+
+---
+
+## Session 14 - February 28, 2026
+
+**Decision:** Gate chat interactions until `VerdureAI` initialization completes.
+**Why:** `initializeAI()` runs asynchronously, so users could tap Send before `verdureAI` was assigned, triggering `lateinit property verdureAI has not been initialized` in `MainActivity.sendMessage()`.
+**Tradeoff:** Slight startup delay before chat becomes interactive vs elimination of an app-crashing race condition.
