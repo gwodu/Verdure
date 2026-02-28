@@ -183,6 +183,8 @@ class NotificationSummarizationService : Service() {
                 summary,
                 System.currentTimeMillis()
             )
+
+            dismissProcessedNotifications(notifications)
             
             Log.d(TAG, "Successfully summarized ${notifications.size} critical notifications")
         } catch (e: Exception) {
@@ -192,6 +194,13 @@ class NotificationSummarizationService : Service() {
         
         // Trigger widget update
         updateWidget()
+    }
+
+    private fun dismissProcessedNotifications(notifications: List<NotificationData>) {
+        val dismissedCount = VerdureNotificationListener.dismissViewedNotifications(notifications)
+        if (dismissedCount > 0) {
+            Log.d(TAG, "Auto-dismissed $dismissedCount summarized notifications")
+        }
     }
     
     /**
