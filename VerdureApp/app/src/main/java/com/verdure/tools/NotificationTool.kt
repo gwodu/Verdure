@@ -1,5 +1,6 @@
 package com.verdure.tools
 
+import android.util.Log
 import com.verdure.core.LLMEngine
 import com.verdure.data.NotificationData
 import com.verdure.data.NotificationFilter
@@ -20,12 +21,17 @@ class NotificationTool(
     private val llmEngine: LLMEngine,
     private val contextManager: UserContextManager
 ) : Tool {
+    companion object {
+        private const val TAG = "NotificationTool"
+        private const val DEFAULT_CLEAR_AFTER_VIEW = true
+    }
 
     override val name: String = "notification_filter"
     override val description: String = "Analyzes and prioritizes notifications based on importance and urgency"
 
     override suspend fun execute(params: Map<String, Any>): String {
         val action = params["action"] as? String
+        val clearAfterView = params["clear_after_view"] as? Boolean ?: DEFAULT_CLEAR_AFTER_VIEW
 
         // If action is "get_all", just return formatted notification list (no LLM)
         if (action == "get_all") {
@@ -35,7 +41,9 @@ class NotificationTool(
             if (notifications.isEmpty()) {
                 return "No priority notifications right now."
             }
-            return formatNotificationsForContext(notifications)
+            val formatted = formatNotificationsForContext(notifications)
+            maybeDismissViewedNotifications(notifications, clearAfterView)
+            return formatted
         }
 
         // If action is "search", filter by keywords
@@ -48,7 +56,9 @@ class NotificationTool(
             if (notifications.isEmpty()) {
                 return "No notifications found matching: ${keywordStrings.joinToString(", ")}"
             }
-            return formatNotificationsForContext(notifications)
+            val formatted = formatNotificationsForContext(notifications)
+            maybeDismissViewedNotifications(notifications, clearAfterView)
+            return formatted
         }
 
         // Handle "get_priority" action (for compatibility with VerdureAI)
@@ -58,7 +68,9 @@ class NotificationTool(
             if (notifications.isEmpty()) {
                 return "No priority notifications right now."
             }
-            return formatNotificationsForContext(notifications)
+            val formatted = formatNotificationsForContext(notifications)
+            maybeDismissViewedNotifications(notifications, clearAfterView)
+            return formatted
         }
 
         // Otherwise, use LLM to analyze (original behavior)
@@ -91,7 +103,23 @@ Categorize into:
 Provide a brief, clear summary.
         """.trimIndent()
 
-        return llmEngine.generateContent(prompt)
+        val response = llmEngine.generateContent(prompt)
+        maybeDismissViewedNotifications(notifications, clearAfterView)
+        return response
+    }
+
+    private fun maybeDismissViewedNotifications(
+        notifications: List<NotificationData>,
+        clearAfterView: Boolean
+    ) {
+        if (!clearAfterView || notifications.isEmpty()) {
+            return
+        }
+
+        val dismissedCount = VerdureNotificationListener.dismissViewedNotifications(notifications)
+        if (dismissedCount > 0) {
+            Log.d(TAG, "Dismissed $dismissedCount viewed notifications after processing")
+        }
     }
 
     /**

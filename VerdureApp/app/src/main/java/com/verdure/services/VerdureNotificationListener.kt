@@ -27,10 +27,60 @@ class VerdureNotificationListener : NotificationListenerService() {
 
         // Track notification count
         private var nextId = 0
+
+        // Active listener instance required to dismiss system notifications.
+        @Volatile
+        private var listenerInstance: VerdureNotificationListener? = null
+
+        /**
+         * Dismiss notifications that Verdure already processed.
+         * Only clearable notifications are removed; ongoing/system items are skipped.
+         */
+        fun dismissViewedNotifications(notifications: List<NotificationData>): Int {
+            val listener = listenerInstance
+            if (listener == null) {
+                Log.w(TAG, "Cannot dismiss notifications: listener not connected")
+                return 0
+            }
+
+            val dismissibleNotifications = notifications.filter {
+                it.isClearable && it.systemKey.isNotBlank()
+            }
+
+            if (dismissibleNotifications.isEmpty()) {
+                return 0
+            }
+
+            var dismissedCount = 0
+            dismissibleNotifications.forEach { notification ->
+                try {
+                    listener.cancelNotification(notification.systemKey)
+                    removeFromCacheBySystemKey(notification.systemKey)
+                    dismissedCount++
+                } catch (e: Exception) {
+                    Log.w(
+                        TAG,
+                        "Failed to dismiss ${notification.appName} (${notification.systemKey})",
+                        e
+                    )
+                }
+            }
+
+            Log.d(
+                TAG,
+                "Dismissed $dismissedCount/${dismissibleNotifications.size} viewed notifications"
+            )
+            return dismissedCount
+        }
+
+        private fun removeFromCacheBySystemKey(systemKey: String) {
+            _notifications.value = _notifications.value.filterNot { it.systemKey == systemKey }
+        }
     }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        listenerInstance = this
         Log.d(TAG, "Notification Listener Connected")
 
         // Load existing notifications when service connects
@@ -39,6 +89,9 @@ class VerdureNotificationListener : NotificationListenerService() {
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
+        if (listenerInstance === this) {
+            listenerInstance = null
+        }
         Log.d(TAG, "Notification Listener Disconnected")
     }
 
@@ -51,6 +104,7 @@ class VerdureNotificationListener : NotificationListenerService() {
 
             // Add to the beginning of the list (most recent first)
             val currentList = _notifications.value.toMutableList()
+            currentList.removeAll { it.systemKey == notificationData.systemKey }
             currentList.add(0, notificationData)
             _notifications.value = currentList
         }
@@ -58,7 +112,15 @@ class VerdureNotificationListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         super.onNotificationRemoved(sbn)
-        Log.d(TAG, "Notification removed: ${sbn.packageName}")
+        removeFromCacheBySystemKey(sbn.key)
+        Log.d(TAG, "Notification removed: ${sbn.packageName} (${sbn.key})")
+    }
+
+    override fun onDestroy() {
+        if (listenerInstance === this) {
+            listenerInstance = null
+        }
+        super.onDestroy()
     }
 
     /**
@@ -139,11 +201,13 @@ class VerdureNotificationListener : NotificationListenerService() {
 
             return NotificationData(
                 id = nextId++,
+                systemKey = sbn.key,
                 packageName = sbn.packageName,
                 appName = appName,
                 title = title,
                 text = text,
                 timestamp = sbn.postTime,
+                isClearable = sbn.isClearable,
                 category = notification.category,
                 priority = importance,
                 contentIntent = contentIntent,  // Capture the intent to open the app

@@ -7,11 +7,13 @@ import android.app.PendingIntent
  */
 data class NotificationData(
     val id: Int,
+    val systemKey: String,
     val packageName: String,
     val appName: String,
     val title: String?,
     val text: String?,
     val timestamp: Long,
+    val isClearable: Boolean,
     val category: String?,
     val priority: Int,
     val contentIntent: PendingIntent?,  // Intent to open the notification's app

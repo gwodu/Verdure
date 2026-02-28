@@ -1246,3 +1246,11 @@ Refactored the core AI engine to resolve memory and compatibility issues.
 🔧 **Next Steps:**
 - Validate battery usage of background service
 - Explore richer widget interactions (e.g., open specific app)
+
+---
+
+## Session 14 - February 28, 2026
+
+**Decision:** Auto-dismiss clearable notifications after Verdure processes them (chat tool + background summarization).
+**Why:** Notification access is useful, but leaving processed notifications in the tray keeps the user overloaded.
+**Tradeoff:** Less tray clutter and faster signal-to-noise vs potentially dismissing items before manual review (mitigated by only clearing notifications Android marks as clearable and keeping ongoing/system items untouched).
