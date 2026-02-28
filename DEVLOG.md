@@ -1449,8 +1449,27 @@ User taps settings icon → AppPriorityActivity
 - Suggest reordering based on usage patterns
 - "You often ignore Instagram, move to bottom?"
 
-### Commit
+### Bug Fix: App List Filter Too Restrictive
+
+**Issue:** User reported only seeing Play Store and Spotify in app list
+
+**Root cause:** 
+- On Pixel devices, many common apps are flagged as "system apps" (Gmail, Messages, Phone, Discord, WhatsApp)
+- Original logic: `if (isSystemApp) return hasLauncher && isUsefulSystemApp(packageName)`
+- Whitelist was too limited, rejecting most pre-installed apps
+
+**Solution:** Simplified to include ANY app with launcher icon
+- Removed whitelist entirely
+- New logic: `return hasLauncher` (trust Android's launcher intent as signal)
+- Background services (no launcher) automatically excluded
+
+**Before:** 2 apps visible (only non-system apps)
+**After:** All user-facing apps visible (Gmail, Discord, Messages, WhatsApp, etc.)
+
+### Commits
 
 **Branch:** `cursor/app-prioritization-interface-faad`
-**Commit:** `33002f7`
+**Commits:** 
+- `33002f7` - Initial implementation
+- `0bcfd2f` - Fix app list filtering
 **Status:** Pushed, awaiting GitHub Actions build
