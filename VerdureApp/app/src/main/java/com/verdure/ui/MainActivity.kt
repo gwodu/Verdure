@@ -21,6 +21,7 @@ import com.cactus.CactusContextInitializer
 import com.verdure.core.CactusLLMEngine
 import com.verdure.core.VerdureAI
 import com.verdure.data.InstalledAppsManager
+import com.verdure.data.LLMResponse
 import com.verdure.data.UserContextManager
 import com.verdure.services.VerdureNotificationListener
 import com.verdure.tools.AppPrioritizationTool
@@ -32,6 +33,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var requestPermissionButton: Button
     private lateinit var settingsButton: android.widget.ImageView
+    private lateinit var incentivesButton: TextView
 
     // Chat components
     private lateinit var chatInput: EditText
@@ -55,6 +57,7 @@ class MainActivity : AppCompatActivity() {
         statusText = findViewById(R.id.statusText)
         requestPermissionButton = findViewById(R.id.requestPermissionButton)
         settingsButton = findViewById(R.id.settingsButton)
+        incentivesButton = findViewById(R.id.incentivesButton)
 
         // Chat components
         chatInput = findViewById(R.id.chatInput)
@@ -79,6 +82,11 @@ class MainActivity : AppCompatActivity() {
         // Settings button handler
         settingsButton.setOnClickListener {
             openAppPrioritySettings()
+        }
+
+        // Incentives button handler
+        incentivesButton.setOnClickListener {
+            openIncentives()
         }
 
         // Chat send button handler
@@ -165,15 +173,18 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 // Show thinking indicator
-                val thinkingView = addMessageToChat("V", "Thinking...")
+                val thinkingView = addMessageToChat("V", "Thinking...", null)
 
                 // Get response from VerdureAI
-                val response = verdureAI.processRequest(userMessage)
+                val rawResponse = verdureAI.processRequest(userMessage)
+                
+                // Parse response to separate thinking from actual response
+                val parsedResponse = LLMResponse.parse(rawResponse)
 
-                // Remove thinking indicator and show response
+                // Remove thinking indicator and show parsed response
                 runOnUiThread {
                     chatHistoryContainer.removeView(thinkingView)
-                    addMessageToChat("V", response)
+                    addMessageToChat("V", parsedResponse.response, parsedResponse.thinking)
                     scrollToBottom()
 
                     // Re-enable input
@@ -186,7 +197,7 @@ class MainActivity : AppCompatActivity() {
                     chatHistoryContainer.findViewWithTag<TextView>("thinking")?.let {
                         chatHistoryContainer.removeView(it)
                     }
-                    addMessageToChat("System", "❌ Error: ${e.message}")
+                    addMessageToChat("System", "❌ Error: ${e.message}", null)
                     sendButton.isEnabled = true
                     chatInput.isEnabled = true
                 }
@@ -196,14 +207,29 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Add a message to the chat history with Verdure styling
+     * @param thinkingContent Optional thinking section to show in collapsible view
      */
-    private fun addMessageToChat(sender: String, message: String): TextView {
-        val messageView = TextView(this).apply {
-            text = when (sender) {
-                "You" -> message
-                "V" -> message
-                else -> message
+    private fun addMessageToChat(sender: String, message: String, thinkingContent: String?): TextView {
+        // Create container for message + optional thinking section
+        val containerLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 0, 16)
             }
+        }
+
+        // Add thinking section if present (only for V's responses)
+        if (sender == "V" && thinkingContent != null && message != "Thinking...") {
+            val thinkingSection = createThinkingSection(thinkingContent)
+            containerLayout.addView(thinkingSection)
+        }
+
+        // Create main message view
+        val messageView = TextView(this).apply {
+            text = message
             textSize = 14f
             setPadding(32, 24, 32, 24)
             setTextColor(resources.getColor(R.color.text_primary, null))
@@ -216,7 +242,6 @@ class MainActivity : AppCompatActivity() {
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
                     ).apply {
-                        setMargins(0, 0, 0, 16)
                         gravity = Gravity.END
                     }
                 }
@@ -225,9 +250,7 @@ class MainActivity : AppCompatActivity() {
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply {
-                        setMargins(0, 0, 0, 16)
-                    }
+                    )
                     if (message == "Thinking...") {
                         tag = "thinking"
                         setTextColor(resources.getColor(R.color.text_secondary, null))
@@ -239,16 +262,83 @@ class MainActivity : AppCompatActivity() {
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply {
-                        setMargins(0, 0, 0, 16)
-                    }
+                    )
                 }
             }
         }
 
-        chatHistoryContainer.addView(messageView)
+        // Add message to container
+        containerLayout.addView(messageView)
+
+        // Add container to chat
+        chatHistoryContainer.addView(containerLayout)
         scrollToBottom()
+        
         return messageView
+    }
+
+    /**
+     * Create collapsible thinking section
+     */
+    private fun createThinkingSection(thinkingContent: String): LinearLayout {
+        val thinkingContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 0, 8)
+            }
+        }
+
+        // Collapsible header
+        val thinkingHeader = TextView(this).apply {
+            text = "▶ View thinking process"
+            textSize = 12f
+            setPadding(24, 12, 24, 12)
+            setTextColor(resources.getColor(R.color.text_secondary, null))
+            setBackgroundResource(R.drawable.message_bubble_system)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            isClickable = true
+            isFocusable = true
+        }
+
+        // Collapsible content (initially hidden)
+        val thinkingBody = TextView(this).apply {
+            text = thinkingContent
+            textSize = 12f
+            setPadding(32, 16, 32, 16)
+            setTextColor(resources.getColor(R.color.text_secondary, null))
+            setBackgroundResource(R.drawable.message_bubble_system)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 4, 0, 0)
+            }
+            visibility = android.view.View.GONE
+        }
+
+        // Toggle visibility on click
+        var isExpanded = false
+        thinkingHeader.setOnClickListener {
+            isExpanded = !isExpanded
+            if (isExpanded) {
+                thinkingBody.visibility = android.view.View.VISIBLE
+                thinkingHeader.text = "▼ Hide thinking process"
+            } else {
+                thinkingBody.visibility = android.view.View.GONE
+                thinkingHeader.text = "▶ View thinking process"
+            }
+        }
+
+        thinkingContainer.addView(thinkingHeader)
+        thinkingContainer.addView(thinkingBody)
+
+        return thinkingContainer
     }
 
     /**
@@ -325,6 +415,14 @@ class MainActivity : AppCompatActivity() {
      */
     private fun openAppPrioritySettings() {
         val intent = Intent(this, AppPriorityActivity::class.java)
+        startActivity(intent)
+    }
+
+    /**
+     * Open incentives/goals tracker
+     */
+    private fun openIncentives() {
+        val intent = Intent(this, IncentivesActivity::class.java)
         startActivity(intent)
     }
 
