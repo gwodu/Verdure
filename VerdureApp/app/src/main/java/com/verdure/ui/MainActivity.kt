@@ -142,7 +142,7 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     sendButton.isEnabled = false
                     chatInput.isEnabled = false
-                    addMessageToChat("System", "Failed to initialize AI. Check model setup.")
+                    addMessageToChat("System", "Failed to initialize AI. Check model setup.", null)
                 }
             }
         }
@@ -153,7 +153,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun sendMessage() {
         if (!::verdureAI.isInitialized) {
-            addMessageToChat("System", "AI is still initializing. Please wait a few seconds and try again.")
+            addMessageToChat("System", "AI is still initializing. Please wait a few seconds and try again.", null)
             return
         }
 
@@ -164,7 +164,7 @@ class MainActivity : AppCompatActivity() {
         chatInput.text.clear()
 
         // Show user message
-        addMessageToChat("You", userMessage)
+        addMessageToChat("You", userMessage, null)
 
         // Disable input while processing
         sendButton.isEnabled = false
