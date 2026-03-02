@@ -22,10 +22,15 @@ jobs:
         distribution: 'temurin'
 
     - name: Inject Firebase config
-      if: ${{ secrets.FIREBASE_CONFIG }}
+      env:
+        FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
       run: |
-        echo "${{ secrets.FIREBASE_CONFIG }}" > VerdureApp/app/google-services.json
-        echo "✓ Firebase config injected from secrets"
+        if [ -n "$FIREBASE_CONFIG" ]; then
+          echo "$FIREBASE_CONFIG" > VerdureApp/app/google-services.json
+          echo "✓ Firebase config injected from secrets"
+        else
+          echo "⚠ No Firebase config found - building without Firebase features"
+        fi
 
     - name: Grant execute permission for gradlew
       working-directory: ./VerdureApp
@@ -49,15 +54,24 @@ jobs:
         retention-days: 30
 
     - name: Upload APK to Firebase App Distribution
-      if: ${{ secrets.FIREBASE_CONFIG && secrets.FIREBASE_APP_ID && secrets.FIREBASE_TOKEN && github.ref == 'refs/heads/main' }}
+      if: github.ref == 'refs/heads/main'
       working-directory: ./VerdureApp
       env:
         FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+        FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
       run: |
-        ./gradlew appDistributionUploadDebug \
-          --firebaseAppId=${{ secrets.FIREBASE_APP_ID }} \
-          --releaseNotes="Automated build from commit ${{ github.sha }}" \
-          --groups="testers"
+        if [ -n "$FIREBASE_CONFIG" ] && [ -n "$FIREBASE_APP_ID" ] && [ -n "$FIREBASE_TOKEN" ]; then
+          echo "✓ Firebase secrets configured - uploading to App Distribution"
+          ./gradlew appDistributionUploadDebug \
+            --firebaseAppId="$FIREBASE_APP_ID" \
+            --releaseNotes="Automated build from commit ${{ github.sha }}" \
+            --groups="testers"
+        else
+          echo "⚠ Firebase secrets not configured - skipping upload"
+          echo "  To enable: Add FIREBASE_CONFIG, FIREBASE_APP_ID, FIREBASE_TOKEN to GitHub Secrets"
+          echo "  See FIREBASE_SETUP.md for instructions"
+        fi
 
     - name: Upload build reports on failure
       if: failure()
