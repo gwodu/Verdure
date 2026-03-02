@@ -129,11 +129,11 @@ No test framework is currently set up. When adding tests, use the standard Andro
 ```
 User speaks naturally
     ↓
-LLM understands intent (Gemma 3 1B on-device)
+LLM understands intent (Qwen 3 0.6B on-device)
     ↓
 VerdureAI routes to appropriate tool(s)
     ↓
-Tools execute (read notifications, set reminders, etc.)
+Tools execute (query Room database, set reminders, etc.)
     ↓
 LLM synthesizes results into natural response
 ```
@@ -142,8 +142,29 @@ LLM synthesizes results into natural response
 
 **`LLMEngine`** - Interface for any LLM backend
 - Abstraction allows swapping LLM implementations
-- Current: `MediaPipeLLMEngine` (Gemma 3 1B via Google MediaPipe)
+- Current: `CactusLLMEngine` (Qwen 3 0.6B via Cactus SDK)
+- Previous: MediaPipeLLMEngine (Gemma 3 1B via Google MediaPipe)
 - Future: Could support other models
+
+#### 2. **Data Layer** (`com.verdure.data/`)
+
+**`NotificationDatabase`** - Room database for persistent storage
+- 24-hour retention of ALL notifications (even after dismissal)
+- Fast SQL queries (< 10ms for search/filter)
+- Automatic cleanup of old notifications
+- Enables querying dismissed notifications
+
+**`NotificationRepository`** - Clean API for notification access
+- `getRecentNotifications()` - All notifications from last 24h
+- `getPriorityNotifications()` - Filter by score threshold
+- `searchNotifications()` - Fast keyword search
+- Thread-safe with coroutines
+
+**`VerdurePreferences`** - User settings management
+- Master auto-dismiss toggle (ON by default)
+- Calendar exclusion from dismissal (ON by default)
+- Settings persist across app restarts
+- Instant effect (no restart needed)
 
 **`VerdureAI`** - Central orchestrator
 - Routes user requests to appropriate tools
@@ -287,11 +308,13 @@ User: "Remind me to call Mom when I get home"
 
 ## Key Dependencies
 
-- **Kotlin**: 2.0.21
+- **Kotlin**: 2.2.0
 - **Android Gradle Plugin**: 8.5.2
 - **AndroidX**: Core KTX, AppCompat, Material Design
 - **Coroutines**: 1.7.3 (for async operations)
 - **Cactus SDK**: 1.2.0-beta (for on-device Qwen 3 0.6B inference)
+- **Room Database**: 2.6.1 (for persistent notification storage)
+- **KSP**: 2.0.21-1.0.28 (Kotlin Symbol Processing for Room compiler)
 
 **Deprecated:**
 - **AI Edge SDK**: 0.0.1-exp01 (non-functional on Pixel 8A)
@@ -395,11 +418,11 @@ The app is in early prototype phase (version 1.0-prototype):
 
 ```
 com.verdure/
-├── core/          - AI engine and orchestration
-├── tools/         - Modular AI capabilities
-├── ui/            - Android UI components
-├── services/      - (Empty, planned for background services)
-└── data/          - (Empty, planned for data models)
+├── core/          - AI engine and orchestration (LLMEngine, VerdureAI)
+├── tools/         - Modular AI capabilities (NotificationTool, AppPrioritizationTool)
+├── ui/            - Android UI components (MainActivity, AppPriorityActivity)
+├── services/      - Background services (VerdureNotificationListener, NotificationSummarizationService)
+└── data/          - Data models and persistence (Room database, UserContext, Preferences)
 ```
 
 ## Adding a New Tool
