@@ -29,6 +29,13 @@
             android:label="App Priority"
             android:parentActivityName=".ui.MainActivity"/>
 
+        <!-- Incentives/Goals Tracking Activity -->
+        <activity
+            android:name=".ui.IncentivesActivity"
+            android:exported="false"
+            android:label="Incentives"
+            android:parentActivityName=".ui.MainActivity"/>
+
 
         <!-- NotificationListenerService for capturing notifications -->
         <service

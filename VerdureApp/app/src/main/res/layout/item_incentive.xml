@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/app_priority_item_background"
+    android:padding="16dp"
+    android:layout_marginBottom="12dp"
+    android:clickable="true"
+    android:focusable="true">
+
+    <!-- Header Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="8dp">
+
+        <!-- Name -->
+        <TextView
+            android:id="@+id/incentiveName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Incentive Name"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"/>
+
+        <!-- Status Badge -->
+        <TextView
+            android:id="@+id/incentiveStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Active"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="@color/accent_primary"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:background="@drawable/badge_high_priority"/>
+
+    </LinearLayout>
+
+    <!-- Summary -->
+    <TextView
+        android:id="@+id/incentiveSummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Summary of what this incentive tracks"
+        android:textSize="13sp"
+        android:textColor="@color/text_secondary"
+        android:layout_marginBottom="8dp"
+        android:maxLines="2"
+        android:ellipsize="end"/>
+
+    <!-- Match Count -->
+    <TextView
+        android:id="@+id/matchCount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="0 notifications tracked"
+        android:textSize="12sp"
+        android:textColor="@color/text_tertiary"/>
+
+    <!-- Action Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="12dp"
+        android:gravity="end">
+
+        <TextView
+            android:id="@+id/toggleButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pause"
+            android:textSize="13sp"
+            android:textColor="@color/accent_primary"
+            android:textStyle="bold"
+            android:padding="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:layout_marginEnd="8dp"/>
+
+        <TextView
+            android:id="@+id/deleteButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Delete"
+            android:textSize="13sp"
+            android:textColor="@color/status_error"
+            android:textStyle="bold"
+            android:padding="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless"/>
+
+    </LinearLayout>
+
+</LinearLayout>

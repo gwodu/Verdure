@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/background_primary">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:background="@color/background_secondary"
+        android:gravity="center_vertical">
+
+        <!-- Back Button -->
+        <TextView
+            android:id="@+id/backButton"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:text="←"
+            android:textSize="24sp"
+            android:textColor="@color/accent_primary"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless"/>
+
+        <!-- Title -->
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="INCENTIVES"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/accent_primary"
+            android:letterSpacing="0.1"
+            android:layout_marginStart="12dp"/>
+
+        <!-- Add Button -->
+        <TextView
+            android:id="@+id/addIncentiveButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+ Add"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/accent_primary"
+            android:padding="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless"/>
+
+    </LinearLayout>
+
+    <!-- Empty State -->
+    <LinearLayout
+        android:id="@+id/emptyState"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No incentives yet"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Create an incentive to track goals like graduate school applications or job searches"
+            android:textSize="14sp"
+            android:textColor="@color/text_secondary"
+            android:gravity="center"
+            android:layout_marginBottom="24dp"/>
+
+        <Button
+            android:id="@+id/emptyStateAddButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Create First Incentive"
+            android:textColor="@color/background_primary"
+            android:backgroundTint="@color/accent_primary"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:textStyle="bold"/>
+
+    </LinearLayout>
+
+    <!-- Incentives List -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/incentivesList"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="16dp"
+        android:clipToPadding="false"/>
+
+</LinearLayout>

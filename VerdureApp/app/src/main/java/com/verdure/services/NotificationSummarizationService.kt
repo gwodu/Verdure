@@ -11,6 +11,7 @@ import com.verdure.data.NotificationData
 import com.verdure.data.NotificationFilter
 import com.verdure.data.NotificationSummaryStore
 import com.verdure.data.UserContextManager
+import com.verdure.tools.IncentiveTool
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,6 +36,7 @@ class NotificationSummarizationService : Service() {
     private lateinit var llmEngine: CactusLLMEngine
     private lateinit var notificationFilter: NotificationFilter
     private lateinit var summaryStore: NotificationSummaryStore
+    private lateinit var incentiveTool: IncentiveTool
     
     private var processingJob: Job? = null
     
@@ -43,7 +45,7 @@ class NotificationSummarizationService : Service() {
         private const val CRITICAL_THRESHOLD = 15  // Score threshold for immediate LLM processing
         private const val MAX_NOTIFICATIONS_TO_SUMMARIZE = 5  // Top N critical notifications
         private const val RAW_NOTIFICATION_MAX_LENGTH = 100  // Truncation length for fallback
-        private const val DEBOUNCE_DELAY_MS = 3000L  // Wait 3 seconds to batch multiple notifications
+        private const val DEBOUNCE_DELAY_MS = 1000L  // Wait 1 second to batch multiple notifications (reduced for faster updates)
     }
     
     override fun onCreate() {
@@ -53,7 +55,7 @@ class NotificationSummarizationService : Service() {
         try {
             CactusContextInitializer.initialize(this)
 
-            // Initialize LLM engine
+            // Initialize LLM engine and tools
             scope.launch {
                 Log.d(TAG, "Initializing LLM engine...")
                 // Use Singleton instance
@@ -62,6 +64,10 @@ class NotificationSummarizationService : Service() {
                 
                 if (success) {
                     Log.d(TAG, "LLM engine initialized successfully")
+                    
+                    // Initialize incentive tool for notification matching
+                    incentiveTool = IncentiveTool(applicationContext, llmEngine)
+                    Log.d(TAG, "Incentive tool initialized")
                 } else {
                     Log.e(TAG, "Failed to initialize LLM engine")
                 }
@@ -122,13 +128,14 @@ class NotificationSummarizationService : Service() {
     
     /**
      * Process notifications: filter for CRITICAL priority and trigger LLM if needed.
+     * Also checks for incentive matches (two-pass processing).
      */
     private suspend fun processNotifications(notifications: List<NotificationData>) {
         if (notifications.isEmpty()) {
             return
         }
         
-        // Score and filter for CRITICAL priority (score >= 15)
+        // PASS 1: Score and filter for CRITICAL priority (score >= 15)
         val criticalNotifications = notifications
             .map { it to notificationFilter.scoreNotification(it) }
             .filter { (_, score) -> score >= CRITICAL_THRESHOLD }
@@ -141,7 +148,9 @@ class NotificationSummarizationService : Service() {
         
         if (criticalNotifications.isEmpty()) {
             Log.d(TAG, "No critical notifications to summarize")
-            return
+            // Clear widget to show "all clear" state
+            summaryStore.clearSummaries()
+            updateWidget()
         }
         
         // Check if we've already summarized these notifications
@@ -149,15 +158,45 @@ class NotificationSummarizationService : Service() {
             !summaryStore.hasBeenSummarized(notif.id)
         }
         
-        if (newNotifications.isEmpty()) {
+        if (newNotifications.isNotEmpty()) {
+            Log.d(TAG, "Found ${newNotifications.size} new critical notifications to summarize")
+            // Trigger LLM summarization for widget
+            summarizeNotifications(newNotifications)
+        } else {
             Log.d(TAG, "All critical notifications already summarized")
+        }
+        
+        // PASS 2: Check for incentive matches (process ALL notifications, not just critical)
+        processIncentiveMatches(notifications)
+    }
+    
+    /**
+     * Process notifications for incentive matches (Pass 2)
+     * Runs independently of urgency scoring
+     */
+    private suspend fun processIncentiveMatches(notifications: List<NotificationData>) {
+        if (!::incentiveTool.isInitialized) {
+            Log.d(TAG, "Incentive tool not initialized, skipping incentive matching")
             return
         }
         
-        Log.d(TAG, "Found ${newNotifications.size} new critical notifications to summarize")
-        
-        // Trigger LLM summarization
-        summarizeNotifications(newNotifications)
+        notifications.forEach { notification ->
+            try {
+                val result = incentiveTool.execute(
+                    mapOf(
+                        "action" to "match_notification",
+                        "notification" to notification
+                    )
+                )
+                
+                // Result is JSON string like {"matched": true/false, "incentive": "...", "summary": "..."}
+                if (result.contains("\"matched\": true")) {
+                    Log.d(TAG, "Notification matched to incentive: ${notification.appName}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to check incentive match for notification ${notification.id}", e)
+            }
+        }
     }
     
     /**
@@ -236,30 +275,30 @@ class NotificationSummarizationService : Service() {
         }
         
         return """
-You are V, a personal AI assistant. Summarize these critical notifications into ultra-concise, actionable points for a home screen widget.
+Summarize these urgent notifications for a home screen widget. Be EXTREMELY concise.
 
-Critical notifications:
+Notifications:
 $notifList
 
-Rules:
-- Maximum 3 bullet points total (not per notification)
-- Each point: 8 words or less
-- Focus on ACTION needed, not description
-- Use present tense, imperative mood
-- Omit app names (user knows context)
-- Prioritize time-sensitive items first
+RULES (CRITICAL):
+- Maximum 3 bullet points total
+- Each point: 6-8 words maximum
+- Start with • (bullet)
+- Action-focused only
+- NO app names
+- NO greetings or extra text
 
-Examples:
-Input: "Gmail: Interview tomorrow at 9am - Please confirm availability"
+EXAMPLES:
+Input: "Gmail: Interview tomorrow 9am - Confirm"
 Output: • Confirm interview tomorrow 9am
 
-Input: "Slack: Meeting in 15 minutes - Join Zoom link"
+Input: "Slack: Meeting in 15 min"
 Output: • Join meeting in 15 min
 
-Input: "Chase Bank: Security Alert - Verify $500 transaction"
-Output: • Verify $500 bank transaction
+Input: "Bank: Verify $500 charge"
+Output: • Verify $500 transaction
 
-Now summarize:
+Output ONLY the bullet points:
         """.trimIndent()
     }
     

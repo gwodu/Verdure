@@ -230,10 +230,14 @@ $notificationList
 
 User asked: "$userMessage"
 
-Provide a helpful, concise summary of the notifications that answers their question.
-Focus on what's most urgent and important based on their priorities.
+IMPORTANT: Structure your response as follows:
+<thinking>
+[Your internal reasoning: which notifications are most relevant, what patterns you notice, what's most urgent]
+</thinking>
 
-Response:
+<response>
+[Your helpful, concise summary for the user. Focus on what's most urgent and important based on their priorities.]
+</response>
         """.trimIndent()
     }
 
@@ -505,7 +509,14 @@ Current user priorities:
 
 User: "$userMessage"
 
-Respond naturally and helpfully:
+IMPORTANT: Structure your response as follows:
+<thinking>
+[Your internal reasoning: what the user is asking, how to best respond, what information to include]
+</thinking>
+
+<response>
+[Your natural, helpful response to the user]
+</response>
         """.trimIndent()
     }
 
