@@ -1,6 +1,7 @@
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
+    id 'kotlin-kapt'
     id 'org.jetbrains.kotlin.plugin.serialization' version '2.2.0'
 }
 
@@ -60,5 +61,5 @@ dependencies {
     // Room database for persistent notification storage
     implementation 'androidx.room:room-runtime:2.6.1'
     implementation 'androidx.room:room-ktx:2.6.1'
-    // Note: KSP annotation processing removed temporarily - Room will use reflection fallback
+    kapt 'androidx.room:room-compiler:2.6.1'
 }
