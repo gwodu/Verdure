@@ -1,28 +1,12 @@
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
-    id 'org.jetbrains.kotlin.plugin.serialization' version '2.0.21'
-    id 'com.google.devtools.ksp' version '2.0.21-1.0.28'
+    id 'org.jetbrains.kotlin.plugin.serialization' version '2.2.0'
 }
 
 // Apply Firebase plugins conditionally (only if google-services.json exists)
 apply from: '../firebase-config.gradle'
 
-configurations.all {
-    resolutionStrategy {
-        force 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
-        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.0.21'
-        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21'
-        force 'org.jetbrains.kotlin:kotlin-stdlib-common:2.0.21'
-        force 'org.jetbrains.kotlin:kotlin-reflect:2.0.21'
-    }
-    
-    // Exclude Kotlin from all dependencies to use project version
-    all {
-        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
-        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'  
-    }
-}
 
 android {
     namespace 'com.verdure'
@@ -71,15 +55,10 @@ dependencies {
     // implementation 'com.google.ai.edge.aicore:aicore:0.0.1-exp01'
 
     // Cactus on-device LLM SDK
-    implementation('com.cactuscompute:cactus:1.2.0-beta') {
-        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib'
-        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
-        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
-        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-common'
-    }
+    implementation 'com.cactuscompute:cactus:1.2.0-beta'
 
     // Room database for persistent notification storage
     implementation 'androidx.room:room-runtime:2.6.1'
     implementation 'androidx.room:room-ktx:2.6.1'
-    ksp 'androidx.room:room-compiler:2.6.1'
+    // Note: KSP annotation processing removed temporarily - Room will use reflection fallback
 }
