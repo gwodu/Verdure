@@ -87,7 +87,7 @@ class VerdureNotificationListener : NotificationListenerService() {
             }
 
             // Mark as dismissed in Room (persists for 24h even though cleared from tray)
-            if (dismissedKeys.isNotEmpty() && listener.::notificationRepository.isInitialized) {
+            if (dismissedKeys.isNotEmpty() && listener::notificationRepository.isInitialized) {
                 listener.serviceScope.launch {
                     listener.notificationRepository.markMultipleDismissed(dismissedKeys)
                 }
