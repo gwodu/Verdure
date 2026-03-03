@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Verdure Demo</title>
+  <style>
+    :root {
+      --bg: #f5f7f4;
+      --card: #ffffff;
+      --text: #122116;
+      --muted: #3f5547;
+      --brand: #2f8f4a;
+      --brand-dark: #236f39;
+      --accent: #d9f5d8;
+      --border: #dce6dc;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 10%, #ebf8e8 0%, transparent 45%),
+        radial-gradient(circle at 80% 0%, #e1f0fd 0%, transparent 40%),
+        var(--bg);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(760px, 100%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 12px 40px rgba(18, 33, 22, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 5vw, 42px);
+      line-height: 1.05;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .grid {
+      margin-top: 20px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    .pill {
+      background: var(--accent);
+      border: 1px solid #c8ebc8;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1f5e2f;
+      text-align: center;
+    }
+
+    .actions {
+      margin-top: 22px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      text-decoration: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      transition: transform .15s ease, background-color .15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      background: var(--brand);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: var(--brand-dark);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: #fff;
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover {
+      background: #f8fbf8;
+      transform: translateY(-1px);
+    }
+
+    .meta {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #6a7e70;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Verdure Demo</h1>
+    <p>
+      Privacy-first Android assistant with on-device AI for notification prioritization,
+      quick summaries, and focus support.
+    </p>
+
+    <section class="grid" aria-label="Key features">
+      <div class="pill">On-device AI</div>
+      <div class="pill">Notification triage</div>
+      <div class="pill">Calendar-aware priorities</div>
+      <div class="pill">No cloud chat dependency</div>
+    </section>
+
+    <section class="actions" aria-label="Demo actions">
+      <a class="btn btn-primary" href="https://github.com/gwodu/Verdure/actions" target="_blank" rel="noreferrer">
+        Download Latest APK
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/gwodu/Verdure" target="_blank" rel="noreferrer">
+        View Source
+      </a>
+    </section>
+
+    <p class="meta">
+      Tip: Once Firebase App Distribution is configured, replace the APK button with your
+      permanent install link for one-click tester onboarding.
+    </p>
+  </main>
+</body>
+</html>

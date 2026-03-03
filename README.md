@@ -14,6 +14,18 @@ Verdure is an Android app that provides intelligent, privacy-first assistance th
 
 ## Installation
 
+### Live Demo Page
+
+Firebase Hosting deploys a public demo page from `hosting/`:
+
+```text
+https://<your-firebase-project-id>.web.app
+```
+
+Setup required GitHub secrets:
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_TOKEN`
+
 ### For Testers: 1-Click Install Link
 
 **Coming soon:** Firebase App Distribution link for easy installation
