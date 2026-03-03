@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { useState } from "react";
 import { logout } from "../lib/api";
 
-const links = [
+const links: Array<{ href: Route; label: string }> = [
   { href: "/today", label: "Today" },
   { href: "/onboarding", label: "Onboarding" },
   { href: "/settings", label: "Settings" },
