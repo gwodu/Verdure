@@ -1,7 +1,7 @@
 // Conditionally apply Firebase plugins only if google-services.json exists
 // This allows builds to succeed without Firebase configuration
 
-def googleServicesFile = file('app/google-services.json')
+def googleServicesFile = file('google-services.json')
 def hasValidFirebaseConfig = googleServicesFile.exists() && googleServicesFile.text.contains('"project_id"')
 
 if (hasValidFirebaseConfig) {

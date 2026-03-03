@@ -63,7 +63,7 @@ jobs:
       run: |
         if [ -n "$FIREBASE_CONFIG" ] && [ -n "$FIREBASE_APP_ID" ] && [ -n "$FIREBASE_TOKEN" ]; then
           echo "✓ Firebase secrets configured - uploading to App Distribution"
-          ./gradlew appDistributionUploadDebug \
+          ./gradlew :app:appDistributionUploadDebug \
             --firebaseAppId="$FIREBASE_APP_ID" \
             --releaseNotes="Automated build from commit ${{ github.sha }}" \
             --groups="testers"
