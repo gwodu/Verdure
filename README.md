@@ -35,7 +35,7 @@
   - Idempotency keys on prepared actions + execution attempt/error tracking.
 
 ## Required Config for Real Integrations
-- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_REDIRECT_URI`

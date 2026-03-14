@@ -3,7 +3,7 @@ from datetime import date
 import json
 import xml.etree.ElementTree as ET
 
-from openai import OpenAI
+from anthropic import Anthropic
 
 from app.core.config import settings
 
@@ -26,15 +26,13 @@ class PlanOutput:
 def _tool_schema() -> list[dict]:
     return [
         {
-            "type": "function",
-            "function": {
-                "name": "verdure_create_daily_plan",
-                "description": "Create Verdure's single daily focus plan with approval-gated actions.",
-                "parameters": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": [
-                        "date",
+            "name": "verdure_create_daily_plan",
+            "description": "Create Verdure's single daily focus plan with approval-gated actions.",
+            "input_schema": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": [
+                    "date",
                         "primary_focus",
                         "initiative_id",
                         "why",
@@ -79,7 +77,6 @@ def _tool_schema() -> list[dict]:
                         "assumptions": {"type": "array", "items": {"type": "string"}},
                     },
                 },
-            },
         }
     ]
 
@@ -125,17 +122,18 @@ def _plan_from_tool_args(args: dict) -> PlanOutput:
 
 
 def _llm_tool_call_plan(briefing_packet: str) -> PlanOutput:
-    if not settings.openai_api_key:
-        raise ValueError("OPENAI_API_KEY missing")
+    if not settings.anthropic_api_key:
+        raise ValueError("ANTHROPIC_API_KEY missing")
 
-    client = OpenAI(api_key=settings.openai_api_key)
-    completion = client.chat.completions.create(
-        model=settings.openai_model,
+    client = Anthropic(api_key=settings.anthropic_api_key)
+    completion = client.messages.create(
+        model=settings.anthropic_model,
+        max_tokens=1024,
         temperature=0.2,
         tools=_tool_schema(),
-        tool_choice={"type": "function", "function": {"name": "verdure_create_daily_plan"}},
+        tool_choice={"type": "tool", "name": "verdure_create_daily_plan"},
+        system=_system_prompt(),
         messages=[
-            {"role": "system", "content": _system_prompt()},
             {
                 "role": "user",
                 "content": (
@@ -146,15 +144,15 @@ def _llm_tool_call_plan(briefing_packet: str) -> PlanOutput:
         ],
     )
 
-    tool_calls = completion.choices[0].message.tool_calls or []
+    tool_calls = [c for c in completion.content if c.type == "tool_use"]
     if len(tool_calls) != 1:
         raise ValueError("Expected exactly one tool call")
 
     tool_call = tool_calls[0]
-    if tool_call.function.name != "verdure_create_daily_plan":
+    if tool_call.name != "verdure_create_daily_plan":
         raise ValueError("Unexpected tool name")
 
-    args = json.loads(tool_call.function.arguments)
+    args = tool_call.input
     return _plan_from_tool_args(args)
 
 
