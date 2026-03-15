@@ -18,15 +18,25 @@ export default function LoginPage() {
   }, []);
 
   async function onRequest() {
-    const response = await requestMagicLink(email);
-    setMagicLink(response.magic_link);
-    setStatus("Magic link generated. Open it or paste token below.");
+    try {
+      setStatus("Requesting...");
+      const response = await requestMagicLink(email);
+      setMagicLink(response.magic_link);
+      setStatus("Magic link generated. Open it or paste token below.");
+    } catch (e: any) {
+      setStatus(e.message || "Failed to request magic link");
+    }
   }
 
   async function onVerify() {
-    await verifyMagicLink(token);
-    await me();
-    window.location.href = "/today";
+    try {
+      setStatus("Verifying...");
+      await verifyMagicLink(token);
+      await me();
+      window.location.href = "/today";
+    } catch (e: any) {
+      setStatus(e.message || "Failed to verify magic link");
+    }
   }
 
   return (
